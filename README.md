@@ -3,11 +3,7 @@
 [![Package Version](https://img.shields.io/hexpm/v/honk)](https://hex.pm/packages/honk)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/honk/)
 
-An ATProto Lexicon validator for Gleam.
-
-## What is it?
-
-**honk** validates [AT Protocol](https://atproto.com/) lexicon schemas and data against those schemas. Lexicons are the schema language used by the AT Protocol to define record types, XRPC endpoints, and data structures.
+An [AT Protocol](https://atproto.com/) Lexicon validator for Gleam.
 
 ## Installation
 
@@ -83,8 +79,8 @@ pub fn validate_status() {
 
 ## Features
 
-- ✅ **17 Type Validators**: string, integer, boolean, bytes, blob, cid-link, null, object, array, union, ref, record, query, procedure, subscription, token, unknown
-- ✅ **12 String Format Validators**: datetime (RFC3339), uri, at-uri, did, handle, at-identifier, nsid, cid, language, tid, record-key
+- ✅ **Type Validators**: string, integer, boolean, bytes, blob, cid-link, null, object, array, union, ref, record, query, procedure, subscription, token, unknown
+- ✅ **String Format Validators**: datetime (RFC3339), uri, at-uri, did, handle, at-identifier, nsid, cid, language, tid, record-key
 - ✅ **Constraint Validation**: length limits, ranges, enums, required fields
 - ✅ **Reference Resolution**: local (`#def`), global (`nsid#def`), and cross-lexicon references
 - ✅ **Circular Dependency Detection**: prevents infinite reference loops
