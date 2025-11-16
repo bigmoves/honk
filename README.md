@@ -79,12 +79,11 @@ pub fn validate_status() {
 
 ## Features
 
-- ✅ **Type Validators**: string, integer, boolean, bytes, blob, cid-link, null, object, array, union, ref, record, query, procedure, subscription, token, unknown
-- ✅ **String Format Validators**: datetime (RFC3339), uri, at-uri, did, handle, at-identifier, nsid, cid, language, tid, record-key
-- ✅ **Constraint Validation**: length limits, ranges, enums, required fields
-- ✅ **Reference Resolution**: local (`#def`), global (`nsid#def`), and cross-lexicon references
-- ✅ **Circular Dependency Detection**: prevents infinite reference loops
-- ✅ **Detailed Error Messages**: validation errors with path information
+- **Type Validators**: string, integer, boolean, bytes, blob, cid-link, null, object, array, union, ref, record, query, procedure, subscription, token, unknown
+- **String Format Validators**: datetime (RFC3339), uri, at-uri, did, handle, at-identifier, nsid, cid, language, tid, record-key
+- **Constraint Validation**: length limits, ranges, enums, required fields
+- **Reference Resolution**: local (`#def`), global (`nsid#def`), and cross-lexicon references
+- **Detailed Error Messages**: validation errors with path information
 
 ## CLI Usage
 
