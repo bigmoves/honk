@@ -1,9 +1,9 @@
 // Token type validator
 // Tokens are unit types used for discrimination in unions
 
-import honk/errors as errors
 import gleam/json.{type Json}
 import gleam/string
+import honk/errors
 import honk/internal/constraints
 import honk/internal/json_helpers
 import honk/validation/context.{type ValidationContext}

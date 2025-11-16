@@ -1,7 +1,7 @@
 // Null type validator
 
-import honk/errors as errors
 import gleam/json.{type Json}
+import honk/errors
 import honk/internal/constraints
 import honk/internal/json_helpers
 import honk/validation/context.{type ValidationContext}

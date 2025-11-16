@@ -1,11 +1,11 @@
 // Reusable constraint validation functions
 
-import honk/errors as errors
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, Some}
 import gleam/result
 import gleam/string
+import honk/errors
 
 /// Validates length constraints (minLength/maxLength)
 pub fn validate_length_constraints(

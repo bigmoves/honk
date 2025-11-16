@@ -1,6 +1,5 @@
 // Validation context and builder
 
-import honk/errors as errors
 import gleam/dict.{type Dict}
 import gleam/json.{type Json}
 import gleam/list
@@ -8,8 +7,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/set.{type Set}
 import gleam/string
+import honk/errors
 import honk/internal/json_helpers
-import honk/types as types
+import honk/types
 import honk/validation/formats
 
 /// Validation context that tracks state during validation
@@ -36,8 +36,7 @@ pub type ValidationContextBuilder {
     lexicons: Dict(String, types.LexiconDoc),
     // Parameters: data (Json), schema (Json), ctx (ValidationContext)
     validator: Option(
-      fn(Json, Json, ValidationContext) ->
-        Result(Nil, errors.ValidationError),
+      fn(Json, Json, ValidationContext) -> Result(Nil, errors.ValidationError),
     ),
   )
 }

@@ -1,10 +1,10 @@
 // Record type validator
 
-import honk/errors as errors
 import gleam/json.{type Json}
 import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
+import honk/errors
 import honk/internal/constraints
 import honk/internal/json_helpers
 import honk/validation/context.{type ValidationContext}
@@ -101,7 +101,10 @@ pub fn validate_data(
 /// - `any`: Record key can be any valid record key format
 /// - `nsid`: Record key must be a valid NSID
 /// - `literal:*`: Record key must match the literal value after the colon
-fn validate_key(def_name: String, key: String) -> Result(Nil, errors.ValidationError) {
+fn validate_key(
+  def_name: String,
+  key: String,
+) -> Result(Nil, errors.ValidationError) {
   case key {
     "tid" -> Ok(Nil)
     "any" -> Ok(Nil)

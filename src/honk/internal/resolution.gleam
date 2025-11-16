@@ -1,6 +1,5 @@
 // Reference resolution utilities
 
-import honk/errors as errors
 import gleam/dict.{type Dict}
 import gleam/json.{type Json}
 import gleam/list
@@ -8,6 +7,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/set.{type Set}
 import gleam/string
+import honk/errors
 import honk/internal/json_helpers
 import honk/validation/context.{type ValidationContext}
 

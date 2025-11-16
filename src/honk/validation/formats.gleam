@@ -4,7 +4,7 @@ import gleam/list
 import gleam/regexp
 import gleam/string
 import gleam/time/timestamp
-import honk/types as types
+import honk/types
 
 /// Validates RFC3339 datetime format
 pub fn is_valid_rfc3339_datetime(value: String) -> Bool {

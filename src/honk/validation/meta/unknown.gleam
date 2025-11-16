@@ -1,9 +1,9 @@
 // Unknown type validator
 // Unknown allows flexible data with AT Protocol data model rules
 
-import honk/errors as errors
 import gleam/json.{type Json}
 import gleam/option.{None, Some}
+import honk/errors
 import honk/internal/constraints
 import honk/internal/json_helpers
 import honk/validation/context.{type ValidationContext}

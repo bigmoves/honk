@@ -1,9 +1,9 @@
 // Boolean type validator
 
-import honk/errors as errors
 import gleam/json.{type Json}
 import gleam/option.{None, Some}
 import gleam/result
+import honk/errors
 import honk/internal/constraints
 import honk/internal/json_helpers
 import honk/validation/context.{type ValidationContext}

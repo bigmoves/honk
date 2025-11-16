@@ -1,12 +1,12 @@
 // Main public API for the ATProtocol lexicon validator
 
-import honk/errors as errors
 import gleam/dict.{type Dict}
 import gleam/json.{type Json}
 import gleam/option.{None, Some}
 import gleam/result
+import honk/errors
 import honk/internal/json_helpers
-import honk/types as types
+import honk/types
 import honk/validation/context
 import honk/validation/formats
 

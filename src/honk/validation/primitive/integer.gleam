@@ -1,12 +1,12 @@
 // Integer type validator
 
-import honk/errors as errors
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
+import honk/errors
 import honk/internal/constraints
 import honk/internal/json_helpers
 import honk/validation/context.{type ValidationContext}

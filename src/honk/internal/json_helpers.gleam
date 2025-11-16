@@ -1,6 +1,5 @@
 // JSON helper utilities for extracting and validating fields
 
-import honk/errors.{type ValidationError, data_validation, invalid_schema}
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
@@ -8,6 +7,7 @@ import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
+import honk/errors.{type ValidationError, data_validation, invalid_schema}
 
 /// Parse JSON string to dynamic for decoding
 fn json_to_dynamic(json_value: Json) -> Result(Dynamic, String) {
@@ -293,9 +293,7 @@ pub fn dynamic_to_json(dyn: Dynamic) -> Result(Json, ValidationError) {
                       }
                     }
                     Error(_) ->
-                      Error(data_validation(
-                        "Failed to convert dynamic to Json",
-                      ))
+                      Error(data_validation("Failed to convert dynamic to Json"))
                   }
                 }
               }
