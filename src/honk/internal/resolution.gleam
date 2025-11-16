@@ -8,7 +8,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/set.{type Set}
 import gleam/string
-import json_helpers
+import honk/internal/json_helpers as json_helpers
 import validation/context.{type ValidationContext}
 
 /// Resolves a reference string to its target definition

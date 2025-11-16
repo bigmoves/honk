@@ -1,6 +1,7 @@
 name = "honk"
 version = "1.0.0"
 description = "ATProtocol lexicon validator for Gleam"
+internal_modules = ["honk/internal", "honk/internal/*"]
 
 [dependencies]
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"

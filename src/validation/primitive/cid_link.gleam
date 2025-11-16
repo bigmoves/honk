@@ -4,8 +4,8 @@
 import errors.{type ValidationError}
 import gleam/json.{type Json}
 import gleam/option
-import json_helpers
-import validation/constraints
+import honk/internal/json_helpers as json_helpers
+import honk/internal/constraints as constraints
 import validation/context.{type ValidationContext}
 import validation/formats
 
