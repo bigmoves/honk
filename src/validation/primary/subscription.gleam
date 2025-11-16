@@ -1,0 +1,269 @@
+// Subscription type validator
+// Subscriptions are XRPC Subscription (WebSocket) endpoints for real-time data
+
+import errors.{type ValidationError}
+import gleam/dynamic/decode
+import gleam/json.{type Json}
+import gleam/list
+import gleam/option.{None, Some}
+import gleam/result
+import json_helpers
+import validation/constraints
+import validation/context.{type ValidationContext}
+import validation/field as validation_field
+import validation/field/union as validation_field_union
+import validation/meta/unknown as validation_meta_unknown
+import validation/primary/params
+import validation/primitive/boolean as validation_primitive_boolean
+import validation/primitive/integer as validation_primitive_integer
+import validation/primitive/string as validation_primitive_string
+
+const allowed_fields = [
+  "type",
+  "parameters",
+  "message",
+  "errors",
+  "description",
+]
+
+/// Validates subscription schema definition
+pub fn validate_schema(
+  schema: Json,
+  ctx: ValidationContext,
+) -> Result(Nil, ValidationError) {
+  let def_name = context.path(ctx)
+
+  // Validate allowed fields
+  let keys = json_helpers.get_keys(schema)
+  use _ <- result.try(constraints.validate_allowed_fields(
+    def_name,
+    keys,
+    allowed_fields,
+    "subscription",
+  ))
+
+  // Validate parameters field if present
+  use _ <- result.try(case json_helpers.get_field(schema, "parameters") {
+    Some(parameters) -> validate_parameters_schema(parameters, ctx)
+    None -> Ok(Nil)
+  })
+
+  // Validate message field if present
+  use _ <- result.try(case json_helpers.get_field(schema, "message") {
+    Some(message) -> validate_message_schema(def_name, message)
+    None -> Ok(Nil)
+  })
+
+  // Validate errors field if present
+  case json_helpers.get_array(schema, "errors") {
+    Some(_) -> Ok(Nil)
+    None -> Ok(Nil)
+  }
+}
+
+/// Validates subscription parameters data against schema
+/// Data should be the connection parameters as a JSON object
+pub fn validate_data(
+  data: Json,
+  schema: Json,
+  ctx: ValidationContext,
+) -> Result(Nil, ValidationError) {
+  let def_name = context.path(ctx)
+
+  // Subscription parameter data must be an object
+  use _ <- result.try(case json_helpers.is_object(data) {
+    True -> Ok(Nil)
+    False ->
+      Error(errors.data_validation(
+        def_name <> ": subscription parameters must be an object",
+      ))
+  })
+
+  // If schema has parameters, validate data against them
+  case json_helpers.get_field(schema, "parameters") {
+    Some(parameters) -> {
+      let params_ctx = context.with_path(ctx, "parameters")
+      validate_parameters_data(data, parameters, params_ctx)
+    }
+    None -> Ok(Nil)
+  }
+}
+
+/// Validates subscription message data against schema
+pub fn validate_message_data(
+  data: Json,
+  schema: Json,
+  ctx: ValidationContext,
+) -> Result(Nil, ValidationError) {
+  // Get the message schema
+  case json_helpers.get_field(schema, "message") {
+    Some(message) -> {
+      case json_helpers.get_field(message, "schema") {
+        Some(msg_schema) -> {
+          // Message schema must be a union - validate data against it
+          let msg_ctx = context.with_path(ctx, "message.schema")
+          validation_field_union.validate_data(data, msg_schema, msg_ctx)
+        }
+        None -> Ok(Nil)
+      }
+    }
+    None -> Ok(Nil)
+  }
+}
+
+/// Validates parameter data against params schema
+/// (Reused from query validator pattern)
+fn validate_parameters_data(
+  data: Json,
+  params_schema: Json,
+  ctx: ValidationContext,
+) -> Result(Nil, ValidationError) {
+  let def_name = context.path(ctx)
+
+  // Get data as dict
+  use data_dict <- result.try(json_helpers.json_to_dict(data))
+
+  // Get properties and required from params schema
+  let properties_dict = case
+    json_helpers.get_field(params_schema, "properties")
+  {
+    Some(props) -> json_helpers.json_to_dict(props)
+    None -> Ok(json_helpers.empty_dict())
+  }
+
+  let required_array = json_helpers.get_array(params_schema, "required")
+
+  use props_dict <- result.try(properties_dict)
+
+  // Check all required parameters are present
+  use _ <- result.try(case required_array {
+    Some(required) -> {
+      list.try_fold(required, Nil, fn(_, item) {
+        case decode.run(item, decode.string) {
+          Ok(param_name) -> {
+            case json_helpers.dict_has_key(data_dict, param_name) {
+              True -> Ok(Nil)
+              False ->
+                Error(errors.data_validation(
+                  def_name
+                  <> ": missing required parameter '"
+                  <> param_name
+                  <> "'",
+                ))
+            }
+          }
+          Error(_) -> Ok(Nil)
+        }
+      })
+    }
+    None -> Ok(Nil)
+  })
+
+  // Validate each parameter in data
+  json_helpers.dict_fold(data_dict, Ok(Nil), fn(acc, param_name, param_value) {
+    case acc {
+      Error(e) -> Error(e)
+      Ok(_) -> {
+        // Get the schema for this parameter
+        case json_helpers.dict_get(props_dict, param_name) {
+          Some(param_schema_dyn) -> {
+            // Convert dynamic to JSON
+            case json_helpers.dynamic_to_json(param_schema_dyn) {
+              Ok(param_schema) -> {
+                // Convert param value to JSON
+                case json_helpers.dynamic_to_json(param_value) {
+                  Ok(param_json) -> {
+                    // Validate the parameter value against its schema
+                    let param_ctx = context.with_path(ctx, param_name)
+                    validate_parameter_value(
+                      param_json,
+                      param_schema,
+                      param_ctx,
+                    )
+                  }
+                  Error(e) -> Error(e)
+                }
+              }
+              Error(e) -> Error(e)
+            }
+          }
+          None -> {
+            // Parameter not in schema - allow unknown parameters
+            Ok(Nil)
+          }
+        }
+      }
+    }
+  })
+}
+
+/// Validates a single parameter value against its schema
+fn validate_parameter_value(
+  value: Json,
+  schema: Json,
+  ctx: ValidationContext,
+) -> Result(Nil, ValidationError) {
+  // Dispatch based on schema type
+  case json_helpers.get_string(schema, "type") {
+    Some("boolean") ->
+      validation_primitive_boolean.validate_data(value, schema, ctx)
+    Some("integer") ->
+      validation_primitive_integer.validate_data(value, schema, ctx)
+    Some("string") ->
+      validation_primitive_string.validate_data(value, schema, ctx)
+    Some("unknown") -> validation_meta_unknown.validate_data(value, schema, ctx)
+    Some("array") -> validation_field.validate_array_data(value, schema, ctx)
+    Some(other_type) ->
+      Error(errors.data_validation(
+        context.path(ctx)
+        <> ": unsupported parameter type '"
+        <> other_type
+        <> "'",
+      ))
+    None ->
+      Error(errors.data_validation(
+        context.path(ctx) <> ": parameter schema missing type field",
+      ))
+  }
+}
+
+/// Validates parameters schema definition
+fn validate_parameters_schema(
+  parameters: Json,
+  ctx: ValidationContext,
+) -> Result(Nil, ValidationError) {
+  // Validate the full params schema
+  let params_ctx = context.with_path(ctx, "parameters")
+  params.validate_schema(parameters, params_ctx)
+}
+
+/// Validates message schema definition
+fn validate_message_schema(
+  def_name: String,
+  message: Json,
+) -> Result(Nil, ValidationError) {
+  // Message must have schema field
+  case json_helpers.get_field(message, "schema") {
+    Some(schema_field) -> {
+      // Schema must be a union type
+      case json_helpers.get_string(schema_field, "type") {
+        Some("union") -> Ok(Nil)
+        Some(other_type) ->
+          Error(errors.invalid_schema(
+            def_name
+            <> ": subscription message schema must be type 'union', got '"
+            <> other_type
+            <> "'",
+          ))
+        None ->
+          Error(errors.invalid_schema(
+            def_name <> ": subscription message schema missing type field",
+          ))
+      }
+    }
+    None ->
+      Error(errors.invalid_schema(
+        def_name <> ": subscription message missing schema field",
+      ))
+  }
+}
