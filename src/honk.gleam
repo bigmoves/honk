@@ -2,6 +2,7 @@
 
 import gleam/dict.{type Dict}
 import gleam/json.{type Json}
+import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
 import honk/errors
@@ -33,9 +34,14 @@ import honk/validation/primitive/string as validation_primitive_string
 pub type ValidationError =
   errors.ValidationError
 
-/// Main validation function for lexicon documents
-/// Returns Ok(Nil) if all lexicons are valid
-/// Returns Error with a map of lexicon ID to list of error messages
+/// Validates lexicon documents
+///
+/// Validates lexicon structure (id, defs) and ALL definitions within each lexicon.
+/// Each definition in the defs object is validated according to its type.
+///
+/// Returns Ok(Nil) if all lexicons and their definitions are valid.
+/// Returns Error with a map of lexicon ID to list of error messages.
+/// Error messages include the definition name (e.g., "lex.id#defName: error").
 pub fn validate(lexicons: List(Json)) -> Result(Nil, Dict(String, List(String))) {
   // Build validation context
   let builder_result =
@@ -46,22 +52,42 @@ pub fn validate(lexicons: List(Json)) -> Result(Nil, Dict(String, List(String)))
     Ok(builder) ->
       case context.build(builder) {
         Ok(ctx) -> {
-          // Validate each lexicon's main definition
+          // Validate ALL definitions in each lexicon
           let error_map =
             dict.fold(ctx.lexicons, dict.new(), fn(errors, lex_id, lexicon) {
-              // Validate the main definition if it exists
-              case json_helpers.get_field(lexicon.defs, "main") {
-                Some(main_def) -> {
-                  let lex_ctx = context.with_current_lexicon(ctx, lex_id)
-                  case validate_definition(main_def, lex_ctx) {
-                    Ok(_) -> errors
-                    Error(e) ->
-                      dict.insert(errors, lex_id, [errors.to_string(e)])
+              // Get all definition names from the defs object
+              let def_keys = json_helpers.get_keys(lexicon.defs)
+              let lex_ctx = context.with_current_lexicon(ctx, lex_id)
+
+              // Validate each definition
+              list.fold(def_keys, errors, fn(errors_acc, def_name) {
+                case json_helpers.get_field(lexicon.defs, def_name) {
+                  Some(def) -> {
+                    case validate_definition(def, lex_ctx) {
+                      Ok(_) -> errors_acc
+                      Error(e) -> {
+                        // Include def name in error for better context
+                        let error_msg =
+                          lex_id
+                          <> "#"
+                          <> def_name
+                          <> ": "
+                          <> errors.to_string(e)
+                        case dict.get(errors_acc, lex_id) {
+                          Ok(existing_errors) ->
+                            dict.insert(errors_acc, lex_id, [
+                              error_msg,
+                              ..existing_errors
+                            ])
+                          Error(_) ->
+                            dict.insert(errors_acc, lex_id, [error_msg])
+                        }
+                      }
+                    }
                   }
+                  None -> errors_acc
                 }
-                None -> errors
-                // No main definition is OK
-              }
+              })
             })
 
           case dict.is_empty(error_map) {

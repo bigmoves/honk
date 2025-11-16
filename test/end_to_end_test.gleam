@@ -1,4 +1,7 @@
+import gleam/dict
 import gleam/json
+import gleam/list
+import gleam/string
 import gleeunit
 import gleeunit/should
 import honk
@@ -200,5 +203,127 @@ pub fn validate_string_format_test() {
   |> should.be_error
 
   honk.validate_string_format("https://example.com", Uri)
+  |> should.be_ok
+}
+
+// Test lexicon with multiple valid definitions
+pub fn validate_lexicon_multiple_defs_test() {
+  let lexicon =
+    json.object([
+      #("lexicon", json.int(1)),
+      #("id", json.string("com.example.multi")),
+      #(
+        "defs",
+        json.object([
+          #(
+            "main",
+            json.object([
+              #("type", json.string("record")),
+              #("key", json.string("tid")),
+              #(
+                "record",
+                json.object([
+                  #("type", json.string("object")),
+                  #("properties", json.object([])),
+                ]),
+              ),
+            ]),
+          ),
+          #(
+            "stringFormats",
+            json.object([
+              #("type", json.string("object")),
+              #("properties", json.object([])),
+            ]),
+          ),
+          #("additionalType", json.object([#("type", json.string("string"))])),
+        ]),
+      ),
+    ])
+
+  honk.validate([lexicon])
+  |> should.be_ok
+}
+
+// Test lexicon with only non-main definitions
+pub fn validate_lexicon_no_main_def_test() {
+  let lexicon =
+    json.object([
+      #("lexicon", json.int(1)),
+      #("id", json.string("com.example.nomain")),
+      #(
+        "defs",
+        json.object([
+          #("customType", json.object([#("type", json.string("string"))])),
+          #("anotherType", json.object([#("type", json.string("integer"))])),
+        ]),
+      ),
+    ])
+
+  honk.validate([lexicon])
+  |> should.be_ok
+}
+
+// Test lexicon with invalid non-main definition
+pub fn validate_lexicon_invalid_non_main_def_test() {
+  let lexicon =
+    json.object([
+      #("lexicon", json.int(1)),
+      #("id", json.string("com.example.invalid")),
+      #(
+        "defs",
+        json.object([
+          #(
+            "main",
+            json.object([
+              #("type", json.string("record")),
+              #("key", json.string("tid")),
+              #(
+                "record",
+                json.object([
+                  #("type", json.string("object")),
+                  #("properties", json.object([])),
+                ]),
+              ),
+            ]),
+          ),
+          #(
+            "badDef",
+            json.object([
+              #("type", json.string("string")),
+              #("minLength", json.int(10)),
+              #("maxLength", json.int(5)),
+            ]),
+          ),
+        ]),
+      ),
+    ])
+
+  case honk.validate([lexicon]) {
+    Error(error_map) -> {
+      // Should have error for this lexicon
+      case dict.get(error_map, "com.example.invalid") {
+        Ok(errors) -> {
+          // Error message should include the def name
+          list.any(errors, fn(msg) { string.contains(msg, "#badDef") })
+          |> should.be_true
+        }
+        Error(_) -> panic as "Expected error for com.example.invalid"
+      }
+    }
+    Ok(_) -> panic as "Expected validation to fail"
+  }
+}
+
+// Test empty defs object
+pub fn validate_lexicon_empty_defs_test() {
+  let lexicon =
+    json.object([
+      #("lexicon", json.int(1)),
+      #("id", json.string("com.example.empty")),
+      #("defs", json.object([])),
+    ])
+
+  honk.validate([lexicon])
   |> should.be_ok
 }
