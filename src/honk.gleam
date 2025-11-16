@@ -77,14 +77,18 @@ pub fn validate(lexicons: List(Json)) -> Result(Nil, Dict(String, List(String)))
                         let message = case e {
                           errors.InvalidSchema(msg) -> msg
                           errors.DataValidation(msg) -> msg
-                          errors.LexiconNotFound(msg) -> "Lexicon not found: " <> msg
+                          errors.LexiconNotFound(msg) ->
+                            "Lexicon not found: " <> msg
                         }
                         // Clean up leading ": " if present
-                        let clean_message = case string.starts_with(message, ": ") {
+                        let clean_message = case
+                          string.starts_with(message, ": ")
+                        {
                           True -> string.drop_start(message, 2)
                           False -> message
                         }
-                        let error_msg = lex_id <> "#" <> def_name <> ": " <> clean_message
+                        let error_msg =
+                          lex_id <> "#" <> def_name <> ": " <> clean_message
                         case dict.get(errors_acc, lex_id) {
                           Ok(existing_errors) ->
                             dict.insert(errors_acc, lex_id, [
@@ -221,7 +225,9 @@ fn validate_path(path: String) -> Nil {
       case simplifile.is_directory(path) {
         Ok(True) -> validate_directory(path)
         Ok(False) -> {
-          io.println_error("Error: Path is neither a file nor a directory: " <> path)
+          io.println_error(
+            "Error: Path is neither a file nor a directory: " <> path,
+          )
           Nil
         }
         Error(_) -> {
@@ -367,7 +373,9 @@ fn validate_directory(dir_path: String) -> Nil {
           case total_errors {
             0 ->
               io.println(
-                "\nAll " <> int.to_string(total) <> " schemas validated successfully.",
+                "\nAll "
+                <> int.to_string(total)
+                <> " schemas validated successfully.",
               )
             _ ->
               io.println_error(

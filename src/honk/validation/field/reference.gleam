@@ -44,7 +44,8 @@ pub fn validate_schema(
 
   // Validate that the reference can be resolved (only for global refs with full context)
   case string.starts_with(ref_str, "#") {
-    True -> Ok(Nil)  // Local ref - will be validated in same lexicon
+    True -> Ok(Nil)
+    // Local ref - will be validated in same lexicon
     False -> {
       // Global ref - check it exists in catalog if we have a current lexicon
       case context.current_lexicon_id(ctx) {
