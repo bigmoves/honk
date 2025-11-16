@@ -7,9 +7,9 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
-import honk/internal/json_helpers as json_helpers
+import honk/internal/constraints
+import honk/internal/json_helpers
 import types
-import honk/internal/constraints as constraints
 import validation/context.{type ValidationContext}
 import validation/formats
 

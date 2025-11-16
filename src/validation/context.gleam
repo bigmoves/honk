@@ -8,7 +8,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/set.{type Set}
 import gleam/string
-import honk/internal/json_helpers as json_helpers
+import honk/internal/json_helpers
 import types.{type LexiconDoc, LexiconDoc}
 import validation/formats
 
