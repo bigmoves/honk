@@ -40,7 +40,38 @@ pub fn validate_schema(
   use ref_str <- result.try(ref_value)
 
   // Validate reference syntax
-  validate_ref_syntax(ref_str, def_name)
+  use _ <- result.try(validate_ref_syntax(ref_str, def_name))
+
+  // Validate that the reference can be resolved (only for global refs with full context)
+  case string.starts_with(ref_str, "#") {
+    True -> Ok(Nil)  // Local ref - will be validated in same lexicon
+    False -> {
+      // Global ref - check it exists in catalog if we have a current lexicon
+      case context.current_lexicon_id(ctx) {
+        Some(lex_id) -> {
+          // We have a full validation context, so validate reference resolution
+          use resolved <- result.try(resolution.resolve_reference(
+            ref_str,
+            ctx,
+            lex_id,
+          ))
+
+          case resolved {
+            Some(_) -> Ok(Nil)
+            None ->
+              Error(errors.invalid_schema(
+                def_name <> ": reference not found: " <> ref_str,
+              ))
+          }
+        }
+        None -> {
+          // No current lexicon (e.g., unit test context)
+          // Just validate syntax, can't check if reference exists
+          Ok(Nil)
+        }
+      }
+    }
+  }
 }
 
 /// Validates data against the referenced schema

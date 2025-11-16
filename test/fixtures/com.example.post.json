@@ -1,0 +1,46 @@
+{
+  "lexicon": 1,
+  "id": "com.example.post",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["text", "createdAt"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "author": {
+            "type": "ref",
+            "ref": "com.example.user#profile"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "reply": {
+            "type": "ref",
+            "ref": "#replyRef"
+          }
+        }
+      }
+    },
+    "replyRef": {
+      "type": "object",
+      "required": ["parent", "root"],
+      "properties": {
+        "parent": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        },
+        "root": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        }
+      }
+    }
+  }
+}

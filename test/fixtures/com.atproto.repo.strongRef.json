@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "com.atproto.repo.strongRef",
+  "defs": {
+    "main": {
+      "type": "object",
+      "required": ["uri", "cid"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        }
+      }
+    }
+  }
+}

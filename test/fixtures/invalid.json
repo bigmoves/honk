@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "com.example.invalid",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "badDef": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 5
+    }
+  }
+}

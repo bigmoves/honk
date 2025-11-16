@@ -1,15 +1,21 @@
 // Main public API for the ATProtocol lexicon validator
 
+import argv
 import gleam/dict.{type Dict}
+import gleam/dynamic/decode
+import gleam/int
+import gleam/io
 import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
+import gleam/string
 import honk/errors
 import honk/internal/json_helpers
 import honk/types
 import honk/validation/context
 import honk/validation/formats
+import simplifile
 
 // Import validators
 import honk/validation/field as validation_field
@@ -67,12 +73,18 @@ pub fn validate(lexicons: List(Json)) -> Result(Nil, Dict(String, List(String)))
                       Ok(_) -> errors_acc
                       Error(e) -> {
                         // Include def name in error for better context
-                        let error_msg =
-                          lex_id
-                          <> "#"
-                          <> def_name
-                          <> ": "
-                          <> errors.to_string(e)
+                        // Extract just the message without wrapper text
+                        let message = case e {
+                          errors.InvalidSchema(msg) -> msg
+                          errors.DataValidation(msg) -> msg
+                          errors.LexiconNotFound(msg) -> "Lexicon not found: " <> msg
+                        }
+                        // Clean up leading ": " if present
+                        let clean_message = case string.starts_with(message, ": ") {
+                          True -> string.drop_start(message, 2)
+                          False -> message
+                        }
+                        let error_msg = lex_id <> "#" <> def_name <> ": " <> clean_message
                         case dict.get(errors_acc, lex_id) {
                           Ok(existing_errors) ->
                             dict.insert(errors_acc, lex_id, [
@@ -185,23 +197,273 @@ pub fn validate_string_format(
   }
 }
 
-/// Entry point for the honk lexicon validator.
+/// CLI entry point for the honk lexicon validator
 ///
-/// This function serves as an example entry point and can be used
-/// for basic CLI or testing purposes. For actual validation,
-/// use the `validate()` or `validate_record()` functions.
-///
-/// ## Example
-///
-/// ```gleam
-/// import honk
-///
-/// pub fn main() {
-///   honk.main()
-/// }
-/// ```
+/// Usage:
+///   gleam run -m honk check <path>
+///   gleam run -m honk help
 pub fn main() -> Nil {
-  // This would typically be called from tests or CLI
-  let _example_result = is_valid_nsid("com.example.record")
-  Nil
+  case argv.load().arguments {
+    ["check", path] -> validate_path(path)
+    ["help"] | [] -> show_help()
+    _ -> {
+      io.println_error("Unknown command. Use 'help' for usage information.")
+      Nil
+    }
+  }
+}
+
+/// Validate a path (auto-detects file or directory)
+fn validate_path(path: String) -> Nil {
+  case simplifile.is_file(path) {
+    Ok(True) -> validate_file(path)
+    Ok(False) ->
+      case simplifile.is_directory(path) {
+        Ok(True) -> validate_directory(path)
+        Ok(False) -> {
+          io.println_error("Error: Path is neither a file nor a directory: " <> path)
+          Nil
+        }
+        Error(_) -> {
+          io.println_error("Error: Cannot access path: " <> path)
+          Nil
+        }
+      }
+    Error(_) -> {
+      io.println_error("Error: Cannot access path: " <> path)
+      Nil
+    }
+  }
+}
+
+/// Validate a single lexicon file
+fn validate_file(file_path: String) -> Nil {
+  case read_and_validate_file(file_path) {
+    Ok(_) -> {
+      io.println("✓ " <> file_path <> " - valid")
+      Nil
+    }
+    Error(msg) -> {
+      io.println_error("✗ " <> file_path)
+      io.println_error("  " <> msg)
+      Nil
+    }
+  }
+}
+
+/// Validate all .json files in a directory
+fn validate_directory(dir_path: String) -> Nil {
+  case simplifile.get_files(dir_path) {
+    Error(_) -> {
+      io.println_error("Error: Cannot read directory: " <> dir_path)
+      Nil
+    }
+    Ok(all_files) -> {
+      // Filter for .json files
+      let json_files =
+        all_files
+        |> list.filter(fn(path) { string.ends_with(path, ".json") })
+
+      case json_files {
+        [] -> {
+          io.println("No .json files found in " <> dir_path)
+          Nil
+        }
+        files -> {
+          // Read and parse all files
+          let file_results =
+            files
+            |> list.map(fn(file) {
+              case read_json_file(file) {
+                Ok(json_value) -> #(file, Ok(json_value))
+                Error(msg) -> #(file, Error(msg))
+              }
+            })
+
+          // Separate successful parses from failures
+          let #(parse_errors, parsed_files) =
+            list.partition(file_results, fn(result) {
+              case result {
+                #(_, Error(_)) -> True
+                #(_, Ok(_)) -> False
+              }
+            })
+
+          // Display parse errors
+          parse_errors
+          |> list.each(fn(result) {
+            case result {
+              #(file, Error(msg)) -> {
+                io.println_error("✗ " <> file)
+                io.println_error("  " <> msg)
+              }
+              _ -> Nil
+            }
+          })
+
+          // Get all successfully parsed lexicons
+          let lexicons =
+            parsed_files
+            |> list.filter_map(fn(result) {
+              case result {
+                #(_, Ok(json)) -> Ok(json)
+                _ -> Error(Nil)
+              }
+            })
+
+          // Validate all lexicons together (allows cross-lexicon references)
+          case validate(lexicons) {
+            Ok(_) -> {
+              // All lexicons are valid
+              parsed_files
+              |> list.each(fn(result) {
+                case result {
+                  #(file, Ok(_)) -> io.println("✓ " <> file)
+                  _ -> Nil
+                }
+              })
+            }
+            Error(error_map) -> {
+              // Some lexicons have errors - map errors back to files
+              parsed_files
+              |> list.each(fn(result) {
+                case result {
+                  #(file, Ok(json)) -> {
+                    // Get the lexicon ID for this file
+                    case json_helpers.get_string(json, "id") {
+                      Some(lex_id) -> {
+                        case dict.get(error_map, lex_id) {
+                          Ok(errors) -> {
+                            io.println_error("✗ " <> file)
+                            errors
+                            |> list.each(fn(err) {
+                              io.println_error("  " <> err)
+                            })
+                          }
+                          Error(_) -> io.println("✓ " <> file)
+                        }
+                      }
+                      None -> {
+                        io.println_error("✗ " <> file)
+                        io.println_error("  Missing lexicon id")
+                      }
+                    }
+                  }
+                  _ -> Nil
+                }
+              })
+            }
+          }
+
+          // Summary
+          let total = list.length(files)
+          let parse_error_count = list.length(parse_errors)
+          let validation_error_count = case validate(lexicons) {
+            Ok(_) -> 0
+            Error(error_map) -> dict.size(error_map)
+          }
+          let total_errors = parse_error_count + validation_error_count
+
+          case total_errors {
+            0 ->
+              io.println(
+                "\nAll " <> int.to_string(total) <> " schemas validated successfully.",
+              )
+            _ ->
+              io.println_error(
+                "\n"
+                <> int.to_string(total_errors)
+                <> " of "
+                <> int.to_string(total)
+                <> " schemas failed validation.",
+              )
+          }
+
+          Nil
+        }
+      }
+    }
+  }
+}
+
+/// Read and parse a JSON file (without validation)
+fn read_json_file(file_path: String) -> Result(Json, String) {
+  use content <- result.try(
+    simplifile.read(file_path)
+    |> result.map_error(fn(_) { "Cannot read file" }),
+  )
+
+  use json_dynamic <- result.try(
+    json.parse(content, decode.dynamic)
+    |> result.map_error(fn(_) { "Invalid JSON" }),
+  )
+
+  json_helpers.dynamic_to_json(json_dynamic)
+  |> result.map_error(fn(_) { "Failed to convert JSON" })
+}
+
+/// Read a file and validate it as a lexicon
+fn read_and_validate_file(file_path: String) -> Result(Nil, String) {
+  use content <- result.try(
+    simplifile.read(file_path)
+    |> result.map_error(fn(_) { "Cannot read file" }),
+  )
+
+  use json_dynamic <- result.try(
+    json.parse(content, decode.dynamic)
+    |> result.map_error(fn(_) { "Invalid JSON" }),
+  )
+
+  use json_value <- result.try(
+    json_helpers.dynamic_to_json(json_dynamic)
+    |> result.map_error(fn(_) { "Failed to convert JSON" }),
+  )
+
+  use _ <- result.try(
+    validate([json_value])
+    |> result.map_error(fn(error_map) { format_validation_errors(error_map) }),
+  )
+
+  Ok(Nil)
+}
+
+/// Format validation errors from the error map
+fn format_validation_errors(error_map: Dict(String, List(String))) -> String {
+  error_map
+  |> dict.to_list
+  |> list.map(fn(entry) {
+    let #(_key, errors) = entry
+    string.join(errors, "\n  ")
+  })
+  |> string.join("\n  ")
+}
+
+/// Show help text
+fn show_help() -> Nil {
+  io.println(
+    "
+honk - ATProtocol Lexicon Validator
+
+USAGE:
+  gleam run -m honk check <path>
+  gleam run -m honk help
+
+COMMANDS:
+  check <path>     Check a lexicon file or directory
+                   - If <path> is a file: validates that single lexicon
+                   - If <path> is a directory: recursively validates all .json files
+
+  help            Show this help message
+
+EXAMPLES:
+  gleam run -m honk check ./lexicons/xyz/statusphere/status.json
+  gleam run -m honk check ./lexicons
+
+VALIDATION:
+  - Validates lexicon structure (id, defs)
+  - Validates ALL definitions in each lexicon
+  - Checks types, constraints, and references
+  - Reports errors with definition context (lex.id#defName)
+",
+  )
 }

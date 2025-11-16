@@ -86,6 +86,23 @@ pub fn validate_status() {
 - ✅ **Circular Dependency Detection**: prevents infinite reference loops
 - ✅ **Detailed Error Messages**: validation errors with path information
 
+## CLI Usage
+
+Validate lexicon files from the command line:
+
+```sh
+# Validate a single file
+gleam run -m honk check ./lexicons/xyz/statusphere/status.json
+
+# Validate all .json files in a directory
+gleam run -m honk check ./lexicons/
+
+# Show help
+gleam run -m honk help
+```
+
+When validating a directory, all lexicons are loaded together to resolve cross-lexicon references
+
 ## API Overview
 
 ### Main Functions
