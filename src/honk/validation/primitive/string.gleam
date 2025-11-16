@@ -1,6 +1,6 @@
 // String type validator
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dynamic/decode
 import gleam/json.{type Json}
 import gleam/list
@@ -9,9 +9,9 @@ import gleam/result
 import gleam/string
 import honk/internal/constraints
 import honk/internal/json_helpers
-import types
-import validation/context.{type ValidationContext}
-import validation/formats
+import honk/types as types
+import honk/validation/context.{type ValidationContext}
+import honk/validation/formats
 
 const allowed_fields = [
   "type", "format", "minLength", "maxLength", "minGraphemes", "maxGraphemes",
@@ -22,7 +22,7 @@ const allowed_fields = [
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -159,7 +159,7 @@ pub fn validate_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Check data is a string
@@ -233,7 +233,7 @@ fn validate_string_length(
   min_length: Option(Int),
   max_length: Option(Int),
   def_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let byte_length = string.byte_size(value)
   constraints.validate_length_constraints(
     def_name,
@@ -250,7 +250,7 @@ fn validate_grapheme_length(
   min_graphemes: Option(Int),
   max_graphemes: Option(Int),
   def_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Count grapheme clusters (visual characters) using Gleam's stdlib
   // This correctly handles Unicode combining characters, emoji, etc.
   let grapheme_count = value |> string.to_graphemes() |> list.length()
@@ -268,7 +268,7 @@ fn validate_string_format(
   value: String,
   format: types.StringFormat,
   def_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case formats.validate_format(value, format) {
     True -> Ok(Nil)
     False -> {
@@ -285,7 +285,7 @@ fn validate_string_enum(
   value: String,
   enum_values: List(String),
   def_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   constraints.validate_enum_constraint(
     def_name,
     value,

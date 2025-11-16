@@ -1,7 +1,7 @@
-// Query type validator
-// Queries are XRPC Query (HTTP GET) endpoints for retrieving data
+// Subscription type validator
+// Subscriptions are XRPC Subscription (WebSocket) endpoints for real-time data
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dynamic/decode
 import gleam/json.{type Json}
 import gleam/list
@@ -9,21 +9,28 @@ import gleam/option.{None, Some}
 import gleam/result
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
-import validation/field as validation_field
-import validation/meta/unknown as validation_meta_unknown
-import validation/primary/params
-import validation/primitive/boolean as validation_primitive_boolean
-import validation/primitive/integer as validation_primitive_integer
-import validation/primitive/string as validation_primitive_string
+import honk/validation/context.{type ValidationContext}
+import honk/validation/field as validation_field
+import honk/validation/field/union as validation_field_union
+import honk/validation/meta/unknown as validation_meta_unknown
+import honk/validation/primary/params
+import honk/validation/primitive/boolean as validation_primitive_boolean
+import honk/validation/primitive/integer as validation_primitive_integer
+import honk/validation/primitive/string as validation_primitive_string
 
-const allowed_fields = ["type", "parameters", "output", "errors", "description"]
+const allowed_fields = [
+  "type",
+  "parameters",
+  "message",
+  "errors",
+  "description",
+]
 
-/// Validates query schema definition
+/// Validates subscription schema definition
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -32,7 +39,7 @@ pub fn validate_schema(
     def_name,
     keys,
     allowed_fields,
-    "query",
+    "subscription",
   ))
 
   // Validate parameters field if present
@@ -41,9 +48,9 @@ pub fn validate_schema(
     None -> Ok(Nil)
   })
 
-  // Validate output field if present
-  use _ <- result.try(case json_helpers.get_field(schema, "output") {
-    Some(output) -> validate_output_schema(def_name, output)
+  // Validate message field if present
+  use _ <- result.try(case json_helpers.get_field(schema, "message") {
+    Some(message) -> validate_message_schema(def_name, message)
     None -> Ok(Nil)
   })
 
@@ -54,21 +61,21 @@ pub fn validate_schema(
   }
 }
 
-/// Validates query data against schema
-/// Data should be the query parameters as a JSON object
+/// Validates subscription parameters data against schema
+/// Data should be the connection parameters as a JSON object
 pub fn validate_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
-  // Query data must be an object (the parameters)
+  // Subscription parameter data must be an object
   use _ <- result.try(case json_helpers.is_object(data) {
     True -> Ok(Nil)
     False ->
       Error(errors.data_validation(
-        def_name <> ": query parameters must be an object",
+        def_name <> ": subscription parameters must be an object",
       ))
   })
 
@@ -82,12 +89,35 @@ pub fn validate_data(
   }
 }
 
+/// Validates subscription message data against schema
+pub fn validate_message_data(
+  data: Json,
+  schema: Json,
+  ctx: ValidationContext,
+) -> Result(Nil, errors.ValidationError) {
+  // Get the message schema
+  case json_helpers.get_field(schema, "message") {
+    Some(message) -> {
+      case json_helpers.get_field(message, "schema") {
+        Some(msg_schema) -> {
+          // Message schema must be a union - validate data against it
+          let msg_ctx = context.with_path(ctx, "message.schema")
+          validation_field_union.validate_data(data, msg_schema, msg_ctx)
+        }
+        None -> Ok(Nil)
+      }
+    }
+    None -> Ok(Nil)
+  }
+}
+
 /// Validates parameter data against params schema
+/// (Reused from query validator pattern)
 fn validate_parameters_data(
   data: Json,
   params_schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Get data as dict
@@ -158,8 +188,7 @@ fn validate_parameters_data(
             }
           }
           None -> {
-            // Parameter not in schema - could warn or allow
-            // For now, allow unknown parameters
+            // Parameter not in schema - allow unknown parameters
             Ok(Nil)
           }
         }
@@ -173,7 +202,7 @@ fn validate_parameter_value(
   value: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Dispatch based on schema type
   case json_helpers.get_string(schema, "type") {
     Some("boolean") ->
@@ -202,23 +231,39 @@ fn validate_parameter_value(
 fn validate_parameters_schema(
   parameters: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Validate the full params schema
   let params_ctx = context.with_path(ctx, "parameters")
   params.validate_schema(parameters, params_ctx)
 }
 
-/// Validates output schema definition
-fn validate_output_schema(
+/// Validates message schema definition
+fn validate_message_schema(
   def_name: String,
-  output: Json,
-) -> Result(Nil, ValidationError) {
-  // Output must have encoding field
-  case json_helpers.get_string(output, "encoding") {
-    Some(_) -> Ok(Nil)
+  message: Json,
+) -> Result(Nil, errors.ValidationError) {
+  // Message must have schema field
+  case json_helpers.get_field(message, "schema") {
+    Some(schema_field) -> {
+      // Schema must be a union type
+      case json_helpers.get_string(schema_field, "type") {
+        Some("union") -> Ok(Nil)
+        Some(other_type) ->
+          Error(errors.invalid_schema(
+            def_name
+            <> ": subscription message schema must be type 'union', got '"
+            <> other_type
+            <> "'",
+          ))
+        None ->
+          Error(errors.invalid_schema(
+            def_name <> ": subscription message schema missing type field",
+          ))
+      }
+    }
     None ->
       Error(errors.invalid_schema(
-        def_name <> ": query output missing encoding field",
+        def_name <> ": subscription message missing schema field",
       ))
   }
 }

@@ -1,6 +1,6 @@
 // Validation context and builder
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dict.{type Dict}
 import gleam/json.{type Json}
 import gleam/list
@@ -9,14 +9,14 @@ import gleam/result
 import gleam/set.{type Set}
 import gleam/string
 import honk/internal/json_helpers
-import types.{type LexiconDoc, LexiconDoc}
-import validation/formats
+import honk/types as types
+import honk/validation/formats
 
 /// Validation context that tracks state during validation
 pub type ValidationContext {
   ValidationContext(
     // Map of lexicon ID to parsed lexicon document
-    lexicons: Dict(String, LexiconDoc),
+    lexicons: Dict(String, types.LexiconDoc),
     // Current path in data structure (for error messages)
     path: String,
     // Current lexicon ID (for resolving local references)
@@ -25,17 +25,19 @@ pub type ValidationContext {
     reference_stack: Set(String),
     // Recursive validator function for dispatching to type-specific validators
     // Parameters: data (Json), schema (Json), ctx (ValidationContext)
-    validator: fn(Json, Json, ValidationContext) -> Result(Nil, ValidationError),
+    validator: fn(Json, Json, ValidationContext) ->
+      Result(Nil, errors.ValidationError),
   )
 }
 
 /// Builder for constructing ValidationContext
 pub type ValidationContextBuilder {
   ValidationContextBuilder(
-    lexicons: Dict(String, LexiconDoc),
+    lexicons: Dict(String, types.LexiconDoc),
     // Parameters: data (Json), schema (Json), ctx (ValidationContext)
     validator: Option(
-      fn(Json, Json, ValidationContext) -> Result(Nil, ValidationError),
+      fn(Json, Json, ValidationContext) ->
+        Result(Nil, errors.ValidationError),
     ),
   )
 }
@@ -79,7 +81,7 @@ pub fn builder() -> ValidationContextBuilder {
 pub fn with_lexicons(
   builder: ValidationContextBuilder,
   lexicons: List(Json),
-) -> Result(ValidationContextBuilder, ValidationError) {
+) -> Result(ValidationContextBuilder, errors.ValidationError) {
   // Parse each lexicon and add to the dictionary
   list.try_fold(lexicons, builder, fn(b, lex_json) {
     // Extract id and defs from the lexicon JSON
@@ -98,7 +100,8 @@ pub fn with_lexicons(
 /// Parameters: data (Json), schema (Json), ctx (ValidationContext)
 pub fn with_validator(
   builder: ValidationContextBuilder,
-  validator: fn(Json, Json, ValidationContext) -> Result(Nil, ValidationError),
+  validator: fn(Json, Json, ValidationContext) ->
+    Result(Nil, errors.ValidationError),
 ) -> ValidationContextBuilder {
   ValidationContextBuilder(..builder, validator: Some(validator))
 }
@@ -119,7 +122,7 @@ pub fn with_validator(
 /// ```
 pub fn build(
   builder: ValidationContextBuilder,
-) -> Result(ValidationContext, ValidationError) {
+) -> Result(ValidationContext, errors.ValidationError) {
   // Create a default no-op validator if none is set
   let validator = case builder.validator {
     Some(v) -> v
@@ -148,7 +151,10 @@ pub fn build(
 ///   None -> // Lexicon not found
 /// }
 /// ```
-pub fn get_lexicon(ctx: ValidationContext, id: String) -> Option(LexiconDoc) {
+pub fn get_lexicon(
+  ctx: ValidationContext,
+  id: String,
+) -> Option(types.LexiconDoc) {
   case dict.get(ctx.lexicons, id) {
     Ok(lex) -> Some(lex)
     Error(_) -> None
@@ -269,7 +275,7 @@ pub fn has_reference(ctx: ValidationContext, reference: String) -> Bool {
 pub fn parse_reference(
   ctx: ValidationContext,
   reference: String,
-) -> Result(#(String, String), ValidationError) {
+) -> Result(#(String, String), errors.ValidationError) {
   case string.split(reference, "#") {
     // Local reference: #def
     ["", def] ->
@@ -292,7 +298,9 @@ pub fn parse_reference(
 }
 
 /// Helper to parse a lexicon JSON into LexiconDoc
-fn parse_lexicon(lex_json: Json) -> Result(LexiconDoc, ValidationError) {
+fn parse_lexicon(
+  lex_json: Json,
+) -> Result(types.LexiconDoc, errors.ValidationError) {
   // Extract "id" field (required NSID)
   let id_result = case json_helpers.get_string(lex_json, "id") {
     Some(id) -> Ok(id)
@@ -328,5 +336,5 @@ fn parse_lexicon(lex_json: Json) -> Result(LexiconDoc, ValidationError) {
 
   use defs <- result.try(defs_result)
 
-  Ok(LexiconDoc(id: id, defs: defs))
+  Ok(types.LexiconDoc(id: id, defs: defs))
 }

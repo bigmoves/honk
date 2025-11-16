@@ -4,7 +4,7 @@ import gleam/list
 import gleam/regexp
 import gleam/string
 import gleam/time/timestamp
-import types.{type StringFormat}
+import honk/types as types
 
 /// Validates RFC3339 datetime format
 pub fn is_valid_rfc3339_datetime(value: String) -> Bool {
@@ -280,7 +280,7 @@ pub fn is_valid_record_key(value: String) -> Bool {
 }
 
 /// Validates a string value against a specific format
-pub fn validate_format(value: String, format: StringFormat) -> Bool {
+pub fn validate_format(value: String, format: types.StringFormat) -> Bool {
   case format {
     types.DateTime -> is_valid_rfc3339_datetime(value)
     types.Uri -> is_valid_uri(value)

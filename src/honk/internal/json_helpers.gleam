@@ -1,6 +1,6 @@
 // JSON helper utilities for extracting and validating fields
 
-import errors.{type ValidationError}
+import honk/errors.{type ValidationError, data_validation, invalid_schema}
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
@@ -153,7 +153,7 @@ pub fn require_string_field(
   case get_string(json_value, field_name) {
     Some(s) -> Ok(s)
     None ->
-      Error(errors.invalid_schema(
+      Error(invalid_schema(
         def_name <> ": '" <> field_name <> "' must be a string",
       ))
   }
@@ -168,7 +168,7 @@ pub fn require_int_field(
   case get_int(json_value, field_name) {
     Some(i) -> Ok(i)
     None ->
-      Error(errors.invalid_schema(
+      Error(invalid_schema(
         def_name <> ": '" <> field_name <> "' must be an integer",
       ))
   }
@@ -183,7 +183,7 @@ pub fn require_array_field(
   case get_array(json_value, field_name) {
     Some(arr) -> Ok(arr)
     None ->
-      Error(errors.invalid_schema(
+      Error(invalid_schema(
         def_name <> ": '" <> field_name <> "' must be an array",
       ))
   }
@@ -236,9 +236,9 @@ pub fn json_to_dict(
       case decode.run(dyn, decode.dict(decode.string, decode.dynamic)) {
         Ok(dict_val) -> Ok(dict_val)
         Error(_) ->
-          Error(errors.data_validation("Failed to convert JSON to dictionary"))
+          Error(data_validation("Failed to convert JSON to dictionary"))
       }
-    Error(_) -> Error(errors.data_validation("Failed to parse JSON as dynamic"))
+    Error(_) -> Error(data_validation("Failed to parse JSON as dynamic"))
   }
 }
 
@@ -293,7 +293,7 @@ pub fn dynamic_to_json(dyn: Dynamic) -> Result(Json, ValidationError) {
                       }
                     }
                     Error(_) ->
-                      Error(errors.data_validation(
+                      Error(data_validation(
                         "Failed to convert dynamic to Json",
                       ))
                   }

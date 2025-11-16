@@ -1,17 +1,17 @@
 // Procedure type validator
 // Procedures are XRPC Procedure (HTTP POST) endpoints for modifying data
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/json.{type Json}
 import gleam/option.{None, Some}
 import gleam/result
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
-import validation/field as validation_field
-import validation/field/reference as validation_field_reference
-import validation/field/union as validation_field_union
-import validation/primary/params
+import honk/validation/context.{type ValidationContext}
+import honk/validation/field as validation_field
+import honk/validation/field/reference as validation_field_reference
+import honk/validation/field/union as validation_field_union
+import honk/validation/primary/params
 
 const allowed_fields = [
   "type", "parameters", "input", "output", "errors", "description",
@@ -21,7 +21,7 @@ const allowed_fields = [
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -64,7 +64,7 @@ pub fn validate_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // If schema has input, validate data against it
   case json_helpers.get_field(schema, "input") {
     Some(input) -> {
@@ -80,7 +80,7 @@ pub fn validate_output_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // If schema has output, validate data against it
   case json_helpers.get_field(schema, "output") {
     Some(output) -> {
@@ -96,7 +96,7 @@ fn validate_body_data(
   data: Json,
   body: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Get the schema field from the body
   case json_helpers.get_field(body, "schema") {
     Some(schema) -> {
@@ -113,7 +113,7 @@ fn validate_body_schema_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case json_helpers.get_string(schema, "type") {
     Some("object") -> validation_field.validate_object_data(data, schema, ctx)
     Some("ref") -> {
@@ -140,7 +140,7 @@ fn validate_body_schema_data(
 fn validate_parameters_schema(
   parameters: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Validate the full params schema
   let params_ctx = context.with_path(ctx, "parameters")
   params.validate_schema(parameters, params_ctx)
@@ -151,7 +151,7 @@ fn validate_io_schema(
   def_name: String,
   io: Json,
   field_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Input/output must have encoding field
   case json_helpers.get_string(io, "encoding") {
     Some(_) -> Ok(Nil)

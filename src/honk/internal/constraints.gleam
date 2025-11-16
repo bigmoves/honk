@@ -1,6 +1,6 @@
 // Reusable constraint validation functions
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, Some}
@@ -14,7 +14,7 @@ pub fn validate_length_constraints(
   min_length: Option(Int),
   max_length: Option(Int),
   type_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Check minimum length
   case min_length {
     Some(min) if actual_length < min ->
@@ -53,7 +53,7 @@ pub fn validate_length_constraint_consistency(
   min_length: Option(Int),
   max_length: Option(Int),
   type_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case min_length, max_length {
     Some(min), Some(max) if min > max ->
       Error(errors.invalid_schema(
@@ -76,7 +76,7 @@ pub fn validate_integer_range(
   value: Int,
   minimum: Option(Int),
   maximum: Option(Int),
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Check minimum
   case minimum {
     Some(min) if value < min ->
@@ -110,7 +110,7 @@ pub fn validate_integer_constraint_consistency(
   def_name: String,
   minimum: Option(Int),
   maximum: Option(Int),
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case minimum, maximum {
     Some(min), Some(max) if min > max ->
       Error(errors.invalid_schema(
@@ -135,7 +135,7 @@ pub fn validate_enum_constraint(
   type_name: String,
   to_string: fn(a) -> String,
   equal: fn(a, a) -> Bool,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let found = list.any(enum_values, fn(enum_val) { equal(value, enum_val) })
 
   case found {
@@ -158,7 +158,7 @@ pub fn validate_const_default_exclusivity(
   has_const: Bool,
   has_default: Bool,
   type_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case has_const, has_default {
     True, True ->
       Error(errors.invalid_schema(
@@ -177,7 +177,7 @@ pub fn validate_allowed_fields(
   actual_fields: List(String),
   allowed_fields: List(String),
   type_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let unknown_fields =
     list.filter(actual_fields, fn(field) {
       !list.contains(allowed_fields, field)

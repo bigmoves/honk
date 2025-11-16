@@ -1,9 +1,9 @@
 import gleam/json
 import gleeunit
 import gleeunit/should
-import validation/context
-import validation/field
-import validation/field/reference
+import honk/validation/context
+import honk/validation/field
+import honk/validation/field/reference
 
 pub fn main() {
   gleeunit.main()

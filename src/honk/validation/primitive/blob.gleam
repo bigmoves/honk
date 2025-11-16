@@ -1,7 +1,7 @@
 // Blob type validator
 // Blobs are binary objects with MIME types and size constraints
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/int
@@ -12,7 +12,7 @@ import gleam/result
 import gleam/string
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
+import honk/validation/context.{type ValidationContext}
 
 const allowed_fields = ["type", "accept", "maxSize", "description"]
 
@@ -20,7 +20,7 @@ const allowed_fields = ["type", "accept", "maxSize", "description"]
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -57,7 +57,7 @@ pub fn validate_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Data must be an object
@@ -118,7 +118,7 @@ pub fn validate_data(
 fn validate_accept_field(
   def_name: String,
   accept_array: List(Dynamic),
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   list.index_fold(accept_array, Ok(Nil), fn(acc, item, i) {
     use _ <- result.try(acc)
     case decode.run(item, decode.string) {
@@ -139,7 +139,7 @@ fn validate_mime_type_pattern(
   def_name: String,
   mime_type: String,
   _index: Int,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case string.is_empty(mime_type) {
     True ->
       Error(errors.invalid_schema(
@@ -199,7 +199,7 @@ fn validate_wildcard(
   part: String,
   part_name: String,
   full_mime_type: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case string.contains(part, "*") {
     True ->
       case part {
@@ -222,7 +222,7 @@ fn validate_mime_type_against_accept(
   def_name: String,
   mime_type: String,
   accept_array: List(Dynamic),
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let accept_patterns =
     list.filter_map(accept_array, fn(item) { decode.run(item, decode.string) })
 

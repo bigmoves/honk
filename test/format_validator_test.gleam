@@ -1,6 +1,6 @@
 import gleeunit
 import gleeunit/should
-import validation/formats
+import honk/validation/formats
 
 pub fn main() {
   gleeunit.main()

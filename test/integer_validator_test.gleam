@@ -1,8 +1,8 @@
 import gleam/json
 import gleeunit
 import gleeunit/should
-import validation/context
-import validation/primitive/integer
+import honk/validation/context
+import honk/validation/primitive/integer
 
 pub fn main() {
   gleeunit.main()

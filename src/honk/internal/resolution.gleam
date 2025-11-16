@@ -1,6 +1,6 @@
 // Reference resolution utilities
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dict.{type Dict}
 import gleam/json.{type Json}
 import gleam/list
@@ -9,14 +9,14 @@ import gleam/result
 import gleam/set.{type Set}
 import gleam/string
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
+import honk/validation/context.{type ValidationContext}
 
 /// Resolves a reference string to its target definition
 pub fn resolve_reference(
   reference: String,
   ctx: ValidationContext,
   current_lexicon_id: String,
-) -> Result(Option(Json), ValidationError) {
+) -> Result(Option(Json), errors.ValidationError) {
   // Update context with current lexicon
   let ctx = context.with_current_lexicon(ctx, current_lexicon_id)
 
@@ -55,7 +55,7 @@ pub fn validate_reference(
   ctx: ValidationContext,
   current_lexicon_id: String,
   def_path: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Check for circular reference
   case context.has_reference(ctx, reference) {
     True ->
@@ -119,7 +119,7 @@ fn collect_references_recursive(
 pub fn validate_lexicon_references(
   lexicon_id: String,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case context.get_lexicon(ctx, lexicon_id) {
     Some(lexicon) -> {
       // Collect all references from the lexicon
@@ -143,7 +143,7 @@ pub fn validate_lexicon_references(
 /// Validates completeness of all lexicons
 pub fn validate_lexicon_completeness(
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Get all lexicon IDs
   let lexicon_ids = dict.keys(ctx.lexicons)
 
@@ -156,7 +156,7 @@ pub fn validate_lexicon_completeness(
 /// Detects circular dependencies in lexicon references
 pub fn detect_circular_dependencies(
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Build dependency graph
   let graph = build_dependency_graph(ctx)
 

@@ -2,6 +2,7 @@ import gleam/json
 import gleeunit
 import gleeunit/should
 import honk
+import honk/types.{DateTime, Uri}
 
 pub fn main() {
   gleeunit.main()
@@ -192,12 +193,12 @@ pub fn is_valid_nsid_test() {
 
 // Test string format validation helper
 pub fn validate_string_format_test() {
-  honk.validate_string_format("2024-01-01T12:00:00Z", honk.DateTime)
+  honk.validate_string_format("2024-01-01T12:00:00Z", DateTime)
   |> should.be_ok
 
-  honk.validate_string_format("not a datetime", honk.DateTime)
+  honk.validate_string_format("not a datetime", DateTime)
   |> should.be_error
 
-  honk.validate_string_format("https://example.com", honk.Uri)
+  honk.validate_string_format("https://example.com", Uri)
   |> should.be_ok
 }

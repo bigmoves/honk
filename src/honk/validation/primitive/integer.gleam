@@ -1,6 +1,6 @@
 // Integer type validator
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json.{type Json}
@@ -9,7 +9,7 @@ import gleam/option.{None, Some}
 import gleam/result
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
+import honk/validation/context.{type ValidationContext}
 
 const allowed_fields = [
   "type", "minimum", "maximum", "enum", "const", "default", "description",
@@ -19,7 +19,7 @@ const allowed_fields = [
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -75,7 +75,7 @@ pub fn validate_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Check data is an integer
@@ -141,7 +141,7 @@ fn validate_integer_enum(
   value: Int,
   enum_values: List(Int),
   def_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   constraints.validate_enum_constraint(
     def_name,
     value,

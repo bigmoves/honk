@@ -1,6 +1,6 @@
 // Field type validators (object and array)
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dict
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
@@ -11,24 +11,24 @@ import gleam/option.{None, Some}
 import gleam/result
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
+import honk/validation/context.{type ValidationContext}
 
 // Import primitive validators
-import validation/primitive/blob
-import validation/primitive/boolean
-import validation/primitive/bytes
-import validation/primitive/cid_link
-import validation/primitive/integer
-import validation/primitive/null
-import validation/primitive/string
+import honk/validation/primitive/blob
+import honk/validation/primitive/boolean
+import honk/validation/primitive/bytes
+import honk/validation/primitive/cid_link
+import honk/validation/primitive/integer
+import honk/validation/primitive/null
+import honk/validation/primitive/string
 
 // Import other field validators
-import validation/field/reference
-import validation/field/union
+import honk/validation/field/reference
+import honk/validation/field/union
 
 // Import meta validators
-import validation/meta/token
-import validation/meta/unknown
+import honk/validation/meta/token
+import honk/validation/meta/unknown
 
 // ============================================================================
 // SHARED TYPE DISPATCHER
@@ -39,7 +39,7 @@ import validation/meta/unknown
 fn dispatch_schema_validation(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case json_helpers.get_string(schema, "type") {
     Some("string") -> string.validate_schema(schema, ctx)
     Some("integer") -> integer.validate_schema(schema, ctx)
@@ -91,7 +91,7 @@ pub fn dispatch_data_validation(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case json_helpers.get_string(schema, "type") {
     Some("string") -> string.validate_data(data, schema, ctx)
     Some("integer") -> integer.validate_data(data, schema, ctx)
@@ -133,7 +133,7 @@ const object_allowed_fields = [
 pub fn validate_object_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -192,7 +192,7 @@ pub fn validate_object_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Check data is an object
@@ -235,7 +235,7 @@ pub fn validate_object_data(
 fn validate_required_fields(
   def_name: String,
   required: List(Dynamic),
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Convert dynamics to strings
   let field_names =
     list.filter_map(required, fn(item) { decode.run(item, decode.string) })
@@ -255,7 +255,7 @@ fn validate_required_fields(
 fn validate_nullable_fields(
   def_name: String,
   nullable: List(Dynamic),
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Convert dynamics to strings
   let field_names =
     list.filter_map(nullable, fn(item) { decode.run(item, decode.string) })
@@ -276,7 +276,7 @@ fn validate_required_fields_in_data(
   def_name: String,
   required: List(Dynamic),
   data: Json,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Convert dynamics to strings
   let field_names =
     list.filter_map(required, fn(item) { decode.run(item, decode.string) })
@@ -299,7 +299,7 @@ fn validate_required_fields_in_data(
 fn validate_property_schemas(
   properties: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Convert JSON object to dict and validate each property
   case json_helpers.json_to_dict(properties) {
     Ok(props_dict) -> {
@@ -323,7 +323,7 @@ fn validate_property_schemas(
 fn validate_single_property_schema(
   prop_schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   dispatch_schema_validation(prop_schema, ctx)
 }
 
@@ -333,7 +333,7 @@ fn validate_properties_data(
   properties: Json,
   nullable_fields: List(String),
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Convert data to dict
   case json_helpers.json_to_dict(data) {
     Ok(data_dict) -> {
@@ -402,7 +402,7 @@ fn validate_single_property_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   dispatch_data_validation(data, schema, ctx)
 }
 
@@ -418,7 +418,7 @@ const array_allowed_fields = [
 pub fn validate_array_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -465,7 +465,7 @@ pub fn validate_array_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Data must be an array
@@ -543,7 +543,7 @@ pub fn validate_array_data(
 fn validate_array_item_schema(
   items_schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Handle reference types by delegating to reference validator
   case json_helpers.get_string(items_schema, "type") {
     Some("ref") -> reference.validate_schema(items_schema, ctx)
@@ -556,7 +556,7 @@ fn validate_array_item_data(
   item: Dynamic,
   items_schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Convert dynamic to Json for validation
   let item_json = json_helpers.dynamic_to_json(item)
 

@@ -1,6 +1,6 @@
 // Union type validator
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dynamic/decode
 import gleam/json.{type Json}
 import gleam/list
@@ -9,7 +9,7 @@ import gleam/result
 import gleam/string
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
+import honk/validation/context.{type ValidationContext}
 
 const allowed_fields = ["type", "refs", "closed", "description"]
 
@@ -17,7 +17,7 @@ const allowed_fields = ["type", "refs", "closed", "description"]
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -90,7 +90,7 @@ pub fn validate_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Union data must be an object

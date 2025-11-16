@@ -1,13 +1,13 @@
 // CID Link type validator
 // CID links are IPFS content identifiers
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/json.{type Json}
 import gleam/option
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
-import validation/formats
+import honk/validation/context.{type ValidationContext}
+import honk/validation/formats
 
 const allowed_fields = ["type", "description"]
 
@@ -15,7 +15,7 @@ const allowed_fields = ["type", "description"]
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -33,7 +33,7 @@ pub fn validate_data(
   data: Json,
   _schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Check data is an object with $link field

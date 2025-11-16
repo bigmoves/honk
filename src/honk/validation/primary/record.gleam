@@ -1,14 +1,14 @@
 // Record type validator
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/json.{type Json}
 import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
-import validation/field
+import honk/validation/context.{type ValidationContext}
+import honk/validation/field
 
 const allowed_fields = ["type", "key", "record", "description"]
 
@@ -20,7 +20,7 @@ const allowed_record_fields = [
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields at record level
@@ -69,7 +69,7 @@ pub fn validate_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Data must be an object
@@ -101,7 +101,7 @@ pub fn validate_data(
 /// - `any`: Record key can be any valid record key format
 /// - `nsid`: Record key must be a valid NSID
 /// - `literal:*`: Record key must match the literal value after the colon
-fn validate_key(def_name: String, key: String) -> Result(Nil, ValidationError) {
+fn validate_key(def_name: String, key: String) -> Result(Nil, errors.ValidationError) {
   case key {
     "tid" -> Ok(Nil)
     "any" -> Ok(Nil)
@@ -124,7 +124,7 @@ fn validate_key(def_name: String, key: String) -> Result(Nil, ValidationError) {
 fn validate_record_object(
   def_name: String,
   record_def: Json,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Must be type "object"
   case json_helpers.get_string(record_def, "type") {
     Some("object") -> {

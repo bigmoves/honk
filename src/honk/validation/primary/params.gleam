@@ -2,7 +2,7 @@
 // Mirrors the Go implementation's validation/primary/params
 // Params define query/procedure/subscription parameters (XRPC endpoint arguments)
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dynamic/decode
 import gleam/json.{type Json}
 import gleam/list
@@ -10,12 +10,12 @@ import gleam/option.{None, Some}
 import gleam/result
 import honk/internal/constraints
 import honk/internal/json_helpers
-import validation/context.{type ValidationContext}
-import validation/field as validation_field
-import validation/meta/unknown as validation_meta_unknown
-import validation/primitive/boolean as validation_primitive_boolean
-import validation/primitive/integer as validation_primitive_integer
-import validation/primitive/string as validation_primitive_string
+import honk/validation/context.{type ValidationContext}
+import honk/validation/field as validation_field
+import honk/validation/meta/unknown as validation_meta_unknown
+import honk/validation/primitive/boolean as validation_primitive_boolean
+import honk/validation/primitive/integer as validation_primitive_integer
+import honk/validation/primitive/string as validation_primitive_string
 
 const allowed_fields = ["type", "description", "properties", "required"]
 
@@ -23,7 +23,7 @@ const allowed_fields = ["type", "description", "properties", "required"]
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -74,7 +74,7 @@ fn validate_required_fields(
   def_name: String,
   required_array: option.Option(List(decode.Dynamic)),
   properties_dict: json_helpers.JsonDict,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case required_array {
     None -> Ok(Nil)
     Some(required) -> {
@@ -107,7 +107,7 @@ fn validate_properties(
   def_name: String,
   properties_dict: json_helpers.JsonDict,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   json_helpers.dict_fold(properties_dict, Ok(Nil), fn(acc, key, value) {
     case acc {
       Error(e) -> Error(e)
@@ -144,7 +144,7 @@ fn validate_property_type(
   property_name: String,
   property_schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let prop_path = def_name <> ".properties." <> property_name
 
   case json_helpers.get_string(property_schema, "type") {
@@ -199,7 +199,7 @@ fn validate_property_type(
 fn validate_property_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case json_helpers.get_string(schema, "type") {
     Some("boolean") -> validation_primitive_boolean.validate_schema(schema, ctx)
     Some("integer") -> validation_primitive_integer.validate_schema(schema, ctx)
@@ -222,7 +222,7 @@ pub fn validate_data(
   _data: Json,
   _schema: Json,
   _ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Params data validation would check that all required parameters are present
   // and that each parameter value matches its schema
   // For now, simplified implementation

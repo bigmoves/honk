@@ -1,6 +1,6 @@
 // Reference type validator
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/json.{type Json}
 import gleam/option.{None, Some}
 import gleam/result
@@ -8,7 +8,7 @@ import gleam/string
 import honk/internal/constraints
 import honk/internal/json_helpers
 import honk/internal/resolution
-import validation/context.{type ValidationContext}
+import honk/validation/context.{type ValidationContext}
 
 const allowed_fields = ["type", "ref", "description"]
 
@@ -16,7 +16,7 @@ const allowed_fields = ["type", "ref", "description"]
 pub fn validate_schema(
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Validate allowed fields
@@ -49,7 +49,7 @@ pub fn validate_data(
   data: Json,
   schema: Json,
   ctx: ValidationContext,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   let def_name = context.path(ctx)
 
   // Get the reference string
@@ -107,7 +107,7 @@ pub fn validate_data(
 fn validate_ref_syntax(
   ref_str: String,
   def_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   case string.is_empty(ref_str) {
     True ->
       Error(errors.invalid_schema(def_name <> ": reference cannot be empty"))
@@ -148,7 +148,7 @@ fn validate_ref_syntax(
 fn validate_global_ref_with_fragment(
   ref_str: String,
   def_name: String,
-) -> Result(Nil, ValidationError) {
+) -> Result(Nil, errors.ValidationError) {
   // Split on # and validate both parts
   case string.split(ref_str, "#") {
     [nsid, definition] -> {

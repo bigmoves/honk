@@ -1,54 +1,37 @@
 // Main public API for the ATProtocol lexicon validator
 
-import errors.{type ValidationError}
+import honk/errors as errors
 import gleam/dict.{type Dict}
 import gleam/json.{type Json}
 import gleam/option.{None, Some}
 import gleam/result
 import honk/internal/json_helpers
-import types
-import validation/context
-import validation/formats
+import honk/types as types
+import honk/validation/context
+import honk/validation/formats
 
 // Import validators
-import validation/field as validation_field
-import validation/field/reference as validation_field_reference
-import validation/field/union as validation_field_union
-import validation/meta/token as validation_meta_token
-import validation/meta/unknown as validation_meta_unknown
-import validation/primary/params as validation_primary_params
-import validation/primary/procedure as validation_primary_procedure
-import validation/primary/query as validation_primary_query
-import validation/primary/record as validation_primary_record
-import validation/primary/subscription as validation_primary_subscription
-import validation/primitive/blob as validation_primitive_blob
-import validation/primitive/boolean as validation_primitive_boolean
-import validation/primitive/bytes as validation_primitive_bytes
-import validation/primitive/cid_link as validation_primitive_cid_link
-import validation/primitive/integer as validation_primitive_integer
-import validation/primitive/null as validation_primitive_null
-import validation/primitive/string as validation_primitive_string
+import honk/validation/field as validation_field
+import honk/validation/field/reference as validation_field_reference
+import honk/validation/field/union as validation_field_union
+import honk/validation/meta/token as validation_meta_token
+import honk/validation/meta/unknown as validation_meta_unknown
+import honk/validation/primary/params as validation_primary_params
+import honk/validation/primary/procedure as validation_primary_procedure
+import honk/validation/primary/query as validation_primary_query
+import honk/validation/primary/record as validation_primary_record
+import honk/validation/primary/subscription as validation_primary_subscription
+import honk/validation/primitive/blob as validation_primitive_blob
+import honk/validation/primitive/boolean as validation_primitive_boolean
+import honk/validation/primitive/bytes as validation_primitive_bytes
+import honk/validation/primitive/cid_link as validation_primitive_cid_link
+import honk/validation/primitive/integer as validation_primitive_integer
+import honk/validation/primitive/null as validation_primitive_null
+import honk/validation/primitive/string as validation_primitive_string
 
-// Re-export core types
-pub type LexiconDoc =
-  types.LexiconDoc
-
-pub type StringFormat {
-  DateTime
-  Uri
-  AtUri
-  Did
-  Handle
-  AtIdentifier
-  Nsid
-  Cid
-  Language
-  Tid
-  RecordKey
-}
-
-pub type ValidationContext =
-  context.ValidationContext
+// Re-export error type for public API error handling
+pub type ValidationError =
+  errors.ValidationError
 
 /// Main validation function for lexicon documents
 /// Returns Ok(Nil) if all lexicons are valid
@@ -165,27 +148,12 @@ pub fn is_valid_nsid(nsid: String) -> Bool {
 /// Validates a string value against a specific format
 pub fn validate_string_format(
   value: String,
-  format: StringFormat,
+  format: types.StringFormat,
 ) -> Result(Nil, String) {
-  // Convert our StringFormat to types.StringFormat
-  let types_format = case format {
-    DateTime -> types.DateTime
-    Uri -> types.Uri
-    AtUri -> types.AtUri
-    Did -> types.Did
-    Handle -> types.Handle
-    AtIdentifier -> types.AtIdentifier
-    Nsid -> types.Nsid
-    Cid -> types.Cid
-    Language -> types.Language
-    Tid -> types.Tid
-    RecordKey -> types.RecordKey
-  }
-
-  case formats.validate_format(value, types_format) {
+  case formats.validate_format(value, format) {
     True -> Ok(Nil)
     False -> {
-      let format_name = types.format_to_string(types_format)
+      let format_name = types.format_to_string(format)
       Error("Value does not match format: " <> format_name)
     }
   }
