@@ -2,6 +2,7 @@
 
 import argv
 import gleam/dict.{type Dict}
+import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/int
 import gleam/io
@@ -199,6 +200,61 @@ pub fn validate_string_format(
       Error("Value does not match format: " <> format_name)
     }
   }
+}
+
+/// Convert a Dynamic value to Json
+///
+/// This is useful when parsing JSON strings with `json.parse(str, decode.dynamic)`
+/// and then needing to convert to Json for validation.
+///
+/// ## Example
+/// ```gleam
+/// use dyn <- result.try(json.parse(json_str, decode.dynamic))
+/// use json_val <- result.try(honk.dynamic_to_json(dyn))
+/// honk.validate([json_val])
+/// ```
+pub fn dynamic_to_json(dyn: dynamic.Dynamic) -> Result(Json, ValidationError) {
+  json_helpers.dynamic_to_json(dyn)
+}
+
+/// Parse a JSON string and convert to Json for validation
+///
+/// This is a convenience function that combines `json.parse()` and `dynamic_to_json()`.
+/// It's useful when you have JSON stored as strings (e.g., in a database) and want
+/// to validate it with honk.
+///
+/// ## Example
+/// ```gleam
+/// use json_val <- result.try(honk.parse_json_string(stored_json))
+/// honk.validate([json_val])
+/// ```
+pub fn parse_json_string(json_str: String) -> Result(Json, ValidationError) {
+  use dyn <- result.try(
+    json.parse(json_str, decode.dynamic)
+    |> result.map_error(fn(_) {
+      errors.invalid_schema("Failed to parse JSON string")
+    }),
+  )
+  dynamic_to_json(dyn)
+}
+
+/// Parse multiple JSON strings and convert to Json for validation
+///
+/// This is a convenience function for batch parsing JSON strings.
+///
+/// ## Example
+/// ```gleam
+/// use json_vals <- result.try(honk.parse_json_strings(stored_jsons))
+/// honk.validate(json_vals)
+/// ```
+pub fn parse_json_strings(
+  json_strs: List(String),
+) -> Result(List(Json), ValidationError) {
+  json_strs
+  |> list.try_map(parse_json_string)
+  |> result.map_error(fn(_) {
+    errors.invalid_schema("Failed to parse JSON strings")
+  })
 }
 
 /// CLI entry point for the honk lexicon validator
