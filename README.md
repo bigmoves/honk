@@ -5,6 +5,10 @@
 
 An [AT Protocol](https://atproto.com/) Lexicon validator for Gleam.
 
+> [!WARNING]
+> While I've tried to be as thorough as possible checking the validators against various atproto
+> validation libraries, this may contain bugs. Please report any issues you find.
+
 ## Installation
 
 ```sh
@@ -107,10 +111,6 @@ When validating a directory, all lexicons are loaded together to resolve cross-l
 ```sh
 gleam test
 ```
-
-## Implementation
-
-This implementation aligns with the [indigo/atproto/lexicon](https://github.com/bluesky-social/indigo/tree/main/atproto/lexicon) implementation as much as possible, ensuring compatibility with the ATProto specification and ecosystem.
 
 ## Documentation
 
