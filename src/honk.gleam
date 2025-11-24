@@ -170,8 +170,10 @@ pub fn validate_record(
       case json_helpers.get_field(lexicon.defs, "main") {
         Some(main_def) -> {
           let lex_ctx = context.with_current_lexicon(ctx, collection)
+          // Set the path to include the definition name
+          let def_ctx = context.with_path(lex_ctx, "defs.main")
           // Validate the record data against the main definition
-          validation_primary_record.validate_data(record, main_def, lex_ctx)
+          validation_primary_record.validate_data(record, main_def, def_ctx)
         }
         None ->
           Error(errors.invalid_schema(

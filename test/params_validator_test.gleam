@@ -436,9 +436,10 @@ pub fn valid_data_with_array_test() {
 
   let data =
     json.object([
-      #("tags", json.array([json.string("foo"), json.string("bar")], fn(x) {
-        x
-      })),
+      #(
+        "tags",
+        json.array([json.string("foo"), json.string("bar")], fn(x) { x }),
+      ),
     ])
 
   let assert Ok(c) = context.builder() |> context.build()
@@ -561,9 +562,10 @@ pub fn invalid_data_array_wrong_item_type_test() {
   // Array contains strings instead of integers
   let data =
     json.object([
-      #("ids", json.array([json.string("one"), json.string("two")], fn(x) {
-        x
-      })),
+      #(
+        "ids",
+        json.array([json.string("one"), json.string("two")], fn(x) { x }),
+      ),
     ])
 
   let assert Ok(c) = context.builder() |> context.build()

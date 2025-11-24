@@ -1,6 +1,7 @@
 import gleam/json
 import gleeunit
 import gleeunit/should
+import honk/errors
 import honk/validation/context
 import honk/validation/primary/record
 
@@ -229,4 +230,91 @@ pub fn array_of_arrays_test() {
   let assert Ok(ctx) = context.builder() |> context.build
   let result = record.validate_schema(schema, ctx)
   result |> should.be_ok
+}
+
+// Test missing required field error message at record root level
+pub fn record_missing_required_field_message_test() {
+  let schema =
+    json.object([
+      #("type", json.string("record")),
+      #("key", json.string("tid")),
+      #(
+        "record",
+        json.object([
+          #("type", json.string("object")),
+          #("required", json.array([json.string("title")], fn(x) { x })),
+          #(
+            "properties",
+            json.object([
+              #("title", json.object([#("type", json.string("string"))])),
+            ]),
+          ),
+        ]),
+      ),
+    ])
+
+  let data = json.object([#("description", json.string("No title"))])
+
+  let assert Ok(ctx) = context.builder() |> context.build
+  let assert Error(error) = record.validate_data(data, schema, ctx)
+
+  let error_message = errors.to_string(error)
+  error_message
+  |> should.equal("Data validation failed: required field 'title' is missing")
+}
+
+// Test missing required field error message in nested object
+pub fn record_nested_missing_required_field_message_test() {
+  let schema =
+    json.object([
+      #("type", json.string("record")),
+      #("key", json.string("tid")),
+      #(
+        "record",
+        json.object([
+          #("type", json.string("object")),
+          #(
+            "properties",
+            json.object([
+              #("title", json.object([#("type", json.string("string"))])),
+              #(
+                "metadata",
+                json.object([
+                  #("type", json.string("object")),
+                  #(
+                    "required",
+                    json.array([json.string("author")], fn(x) { x }),
+                  ),
+                  #(
+                    "properties",
+                    json.object([
+                      #(
+                        "author",
+                        json.object([#("type", json.string("string"))]),
+                      ),
+                      #("tags", json.object([#("type", json.string("string"))])),
+                    ]),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ])
+
+  let data =
+    json.object([
+      #("title", json.string("My Post")),
+      #("metadata", json.object([#("tags", json.string("tech"))])),
+    ])
+
+  let assert Ok(ctx) = context.builder() |> context.build
+  let assert Error(error) = record.validate_data(data, schema, ctx)
+
+  let error_message = errors.to_string(error)
+  error_message
+  |> should.equal(
+    "Data validation failed: metadata: required field 'author' is missing",
+  )
 }

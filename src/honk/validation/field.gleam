@@ -356,10 +356,13 @@ fn validate_required_fields_in_data(
   list.try_fold(field_names, Nil, fn(_, field_name) {
     case json_helpers.get_field(data, field_name) {
       Some(_) -> Ok(Nil)
-      None ->
-        Error(errors.data_validation(
-          def_name <> ": required field '" <> field_name <> "' is missing",
-        ))
+      None -> {
+        let message = case def_name {
+          "" -> "required field '" <> field_name <> "' is missing"
+          _ -> def_name <> ": required field '" <> field_name <> "' is missing"
+        }
+        Error(errors.data_validation(message))
+      }
     }
   })
 }

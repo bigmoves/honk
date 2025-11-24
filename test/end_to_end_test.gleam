@@ -5,6 +5,7 @@ import gleam/string
 import gleeunit
 import gleeunit/should
 import honk
+import honk/errors
 import honk/types.{DateTime, Uri}
 
 pub fn main() {
@@ -326,4 +327,202 @@ pub fn validate_lexicon_empty_defs_test() {
 
   honk.validate([lexicon])
   |> should.be_ok
+}
+
+// Test missing required field error message with full defs.main path
+pub fn validate_record_missing_required_field_message_test() {
+  let lexicon =
+    json.object([
+      #("lexicon", json.int(1)),
+      #("id", json.string("com.example.post")),
+      #(
+        "defs",
+        json.object([
+          #(
+            "main",
+            json.object([
+              #("type", json.string("record")),
+              #("key", json.string("tid")),
+              #(
+                "record",
+                json.object([
+                  #("type", json.string("object")),
+                  #("required", json.array([json.string("title")], fn(x) { x })),
+                  #(
+                    "properties",
+                    json.object([
+                      #(
+                        "title",
+                        json.object([#("type", json.string("string"))]),
+                      ),
+                    ]),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ])
+
+  let data = json.object([#("description", json.string("No title"))])
+
+  let assert Error(error) =
+    honk.validate_record([lexicon], "com.example.post", data)
+
+  let error_message = errors.to_string(error)
+  error_message
+  |> should.equal(
+    "Data validation failed: defs.main: required field 'title' is missing",
+  )
+}
+
+// Test missing required field in nested object with full path
+pub fn validate_record_nested_missing_required_field_message_test() {
+  let lexicon =
+    json.object([
+      #("lexicon", json.int(1)),
+      #("id", json.string("com.example.post")),
+      #(
+        "defs",
+        json.object([
+          #(
+            "main",
+            json.object([
+              #("type", json.string("record")),
+              #("key", json.string("tid")),
+              #(
+                "record",
+                json.object([
+                  #("type", json.string("object")),
+                  #(
+                    "properties",
+                    json.object([
+                      #(
+                        "title",
+                        json.object([#("type", json.string("string"))]),
+                      ),
+                      #(
+                        "metadata",
+                        json.object([
+                          #("type", json.string("object")),
+                          #(
+                            "required",
+                            json.array([json.string("author")], fn(x) { x }),
+                          ),
+                          #(
+                            "properties",
+                            json.object([
+                              #(
+                                "author",
+                                json.object([#("type", json.string("string"))]),
+                              ),
+                            ]),
+                          ),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ])
+
+  let data =
+    json.object([
+      #("title", json.string("My Post")),
+      #("metadata", json.object([#("tags", json.string("tech"))])),
+    ])
+
+  let assert Error(error) =
+    honk.validate_record([lexicon], "com.example.post", data)
+
+  let error_message = errors.to_string(error)
+  error_message
+  |> should.equal(
+    "Data validation failed: defs.main.metadata: required field 'author' is missing",
+  )
+}
+
+// Test schema validation error for non-main definition includes correct path
+pub fn validate_schema_non_main_definition_error_test() {
+  let lexicon =
+    json.object([
+      #("lexicon", json.int(1)),
+      #("id", json.string("com.example.test")),
+      #(
+        "defs",
+        json.object([
+          #(
+            "objectDef",
+            json.object([
+              #("type", json.string("object")),
+              #(
+                "properties",
+                json.object([
+                  #(
+                    "fieldA",
+                    json.object([
+                      #("type", json.string("string")),
+                      // Invalid: maxLength must be an integer, not a string
+                      #("maxLength", json.string("300")),
+                    ]),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+          #(
+            "recordDef",
+            json.object([
+              #("type", json.string("record")),
+              #("key", json.string("tid")),
+              #(
+                "record",
+                json.object([
+                  #("type", json.string("object")),
+                  #(
+                    "properties",
+                    json.object([
+                      #(
+                        "fieldB",
+                        json.object([
+                          #("type", json.string("ref")),
+                          // Invalid: missing required "ref" field for ref type
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ])
+
+  let result = honk.validate([lexicon])
+
+  // Should have errors
+  result |> should.be_error
+
+  case result {
+    Error(error_map) -> {
+      // Get errors for this lexicon
+      case dict.get(error_map, "com.example.test") {
+        Ok(error_list) -> {
+          // Should have exactly one error from the recordDef (ref missing 'ref' field)
+          error_list
+          |> should.equal([
+            "com.example.test#recordDef: .record.properties.fieldB: ref missing required 'ref' field",
+          ])
+        }
+        Error(_) -> should.fail()
+      }
+    }
+    Ok(_) -> should.fail()
+  }
 }
