@@ -102,28 +102,6 @@ gleam run -m honk help
 
 When validating a directory, all lexicons are loaded together to resolve cross-lexicon references
 
-## API Overview
-
-### Main Functions
-
-- `validate(lexicons: List(Json))` - Validates one or more lexicon schemas
-- `validate_record(lexicons, nsid, data)` - Validates record data against a schema
-- `is_valid_nsid(value)` - Checks if a string is a valid NSID
-- `validate_string_format(value, format)` - Validates string against a format
-
-### Context Builder Pattern
-
-```gleam
-import validation/context
-import validation/field
-
-let assert Ok(ctx) =
-  context.builder()
-  |> context.with_validator(field.dispatch_data_validation)
-  |> context.with_lexicons([lexicon])
-  |> context.build
-```
-
 ## Testing
 
 ```sh

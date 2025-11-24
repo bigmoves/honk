@@ -9,6 +9,7 @@ import gleam/string
 import honk/errors
 import honk/internal/constraints
 import honk/internal/json_helpers
+import honk/internal/resolution
 import honk/validation/context.{type ValidationContext}
 
 const allowed_fields = ["type", "refs", "closed", "description"]
@@ -70,7 +71,7 @@ pub fn validate_schema(
   })
 
   // Empty refs array is only allowed for open unions
-  case list.is_empty(refs_array) {
+  use _ <- result.try(case list.is_empty(refs_array) {
     True -> {
       case json_helpers.get_bool(schema, "closed") {
         Some(True) ->
@@ -81,8 +82,49 @@ pub fn validate_schema(
       }
     }
     False -> Ok(Nil)
-  }
-  // Note: Full implementation would validate that each reference can be resolved
+  })
+
+  // Validate that each reference can be resolved
+  validate_refs_resolvable(refs_array, ctx, def_name)
+}
+
+/// Validates that all references in the refs array can be resolved
+fn validate_refs_resolvable(
+  refs_array: List(decode.Dynamic),
+  ctx: ValidationContext,
+  def_name: String,
+) -> Result(Nil, errors.ValidationError) {
+  // Convert refs to strings
+  let ref_strings =
+    list.filter_map(refs_array, fn(r) { decode.run(r, decode.string) })
+
+  // Check each reference can be resolved (both local and global refs)
+  list.try_fold(ref_strings, Nil, fn(_, ref_str) {
+    case context.current_lexicon_id(ctx) {
+      Some(lex_id) -> {
+        // We have a full validation context, so validate reference resolution
+        // This works for both local refs (#def) and global refs (nsid#def)
+        use resolved <- result.try(resolution.resolve_reference(
+          ref_str,
+          ctx,
+          lex_id,
+        ))
+
+        case resolved {
+          Some(_) -> Ok(Nil)
+          None ->
+            Error(errors.invalid_schema(
+              def_name <> ": reference not found: " <> ref_str,
+            ))
+        }
+      }
+      None -> {
+        // No current lexicon (e.g., unit test context)
+        // Just validate syntax, can't check if reference exists
+        Ok(Nil)
+      }
+    }
+  })
 }
 
 /// Validates union data against schema
@@ -143,10 +185,9 @@ pub fn validate_data(
               refs_contain_type(ref_str, type_name)
             })
           {
-            Ok(_matching_ref) -> {
-              // Found matching ref
-              // In full implementation, would validate against the resolved schema
-              Ok(Nil)
+            Ok(matching_ref) -> {
+              // Found matching ref - validate data against the resolved schema
+              validate_against_resolved_ref(data, matching_ref, ctx, def_name)
             }
             Error(Nil) -> {
               // No matching ref found
@@ -177,6 +218,47 @@ pub fn validate_data(
           }
         }
       }
+    }
+  }
+}
+
+/// Validates data against a resolved reference from the union
+fn validate_against_resolved_ref(
+  data: Json,
+  ref_str: String,
+  ctx: ValidationContext,
+  def_name: String,
+) -> Result(Nil, errors.ValidationError) {
+  // Get current lexicon ID to resolve the reference
+  case context.current_lexicon_id(ctx) {
+    Some(lex_id) -> {
+      // We have a validation context, try to resolve and validate
+      use resolved_opt <- result.try(resolution.resolve_reference(
+        ref_str,
+        ctx,
+        lex_id,
+      ))
+
+      case resolved_opt {
+        Some(resolved_schema) -> {
+          // Successfully resolved - validate data against the resolved schema
+          let validator = ctx.validator
+          validator(data, resolved_schema, ctx)
+        }
+        None -> {
+          // Reference couldn't be resolved
+          // This shouldn't happen as schema validation should have caught it,
+          // but handle gracefully
+          Error(errors.data_validation(
+            def_name <> ": reference not found: " <> ref_str,
+          ))
+        }
+      }
+    }
+    None -> {
+      // No lexicon context (e.g., unit test)
+      // Can't validate against resolved schema, just accept the data
+      Ok(Nil)
     }
   }
 }

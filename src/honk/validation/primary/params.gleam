@@ -1,5 +1,4 @@
 // Params type validator
-// Mirrors the Go implementation's validation/primary/params
 // Params define query/procedure/subscription parameters (XRPC endpoint arguments)
 
 import gleam/dynamic/decode
@@ -219,12 +218,114 @@ fn validate_property_schema(
 
 /// Validates params data against schema
 pub fn validate_data(
-  _data: Json,
-  _schema: Json,
-  _ctx: ValidationContext,
+  data: Json,
+  schema: Json,
+  ctx: ValidationContext,
 ) -> Result(Nil, errors.ValidationError) {
-  // Params data validation would check that all required parameters are present
-  // and that each parameter value matches its schema
-  // For now, simplified implementation
-  Ok(Nil)
+  let def_name = context.path(ctx)
+
+  // Get data as dict
+  use data_dict <- result.try(json_helpers.json_to_dict(data))
+
+  // Get properties and required from params schema
+  let properties_dict = case json_helpers.get_field(schema, "properties") {
+    Some(props) -> json_helpers.json_to_dict(props)
+    None -> Ok(json_helpers.empty_dict())
+  }
+
+  let required_array = json_helpers.get_array(schema, "required")
+
+  use props_dict <- result.try(properties_dict)
+
+  // Check all required parameters are present
+  use _ <- result.try(case required_array {
+    Some(required) -> {
+      list.try_fold(required, Nil, fn(_, item) {
+        case decode.run(item, decode.string) {
+          Ok(param_name) -> {
+            case json_helpers.dict_has_key(data_dict, param_name) {
+              True -> Ok(Nil)
+              False ->
+                Error(errors.data_validation(
+                  def_name
+                  <> ": missing required parameter '"
+                  <> param_name
+                  <> "'",
+                ))
+            }
+          }
+          Error(_) -> Ok(Nil)
+        }
+      })
+    }
+    None -> Ok(Nil)
+  })
+
+  // Validate each parameter in data
+  json_helpers.dict_fold(data_dict, Ok(Nil), fn(acc, param_name, param_value) {
+    case acc {
+      Error(e) -> Error(e)
+      Ok(_) -> {
+        // Get the schema for this parameter
+        case json_helpers.dict_get(props_dict, param_name) {
+          Some(param_schema_dyn) -> {
+            // Convert dynamic to JSON
+            case json_helpers.dynamic_to_json(param_schema_dyn) {
+              Ok(param_schema) -> {
+                // Convert param value to JSON
+                case json_helpers.dynamic_to_json(param_value) {
+                  Ok(param_json) -> {
+                    // Validate the parameter value against its schema
+                    let param_ctx = context.with_path(ctx, param_name)
+                    validate_parameter_value(
+                      param_json,
+                      param_schema,
+                      param_ctx,
+                    )
+                  }
+                  Error(e) -> Error(e)
+                }
+              }
+              Error(e) -> Error(e)
+            }
+          }
+          None -> {
+            // Parameter not in schema - could warn or allow
+            // For now, allow unknown parameters
+            Ok(Nil)
+          }
+        }
+      }
+    }
+  })
+}
+
+/// Validates a single parameter value against its schema
+fn validate_parameter_value(
+  value: Json,
+  schema: Json,
+  ctx: ValidationContext,
+) -> Result(Nil, errors.ValidationError) {
+  // Dispatch based on schema type
+  case json_helpers.get_string(schema, "type") {
+    Some("boolean") ->
+      validation_primitive_boolean.validate_data(value, schema, ctx)
+    Some("integer") ->
+      validation_primitive_integer.validate_data(value, schema, ctx)
+    Some("string") ->
+      validation_primitive_string.validate_data(value, schema, ctx)
+    Some("unknown") -> validation_meta_unknown.validate_data(value, schema, ctx)
+    Some("array") -> validation_field.validate_array_data(value, schema, ctx)
+    Some(other_type) ->
+      Error(errors.data_validation(
+        context.path(ctx)
+        <> ": unsupported parameter type '"
+        <> other_type
+        <> "'",
+      ))
+    None ->
+      Error(errors.data_validation(
+        context.path(ctx) <> ": parameter schema missing type field",
+      ))
+  }
 }

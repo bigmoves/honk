@@ -160,20 +160,25 @@ pub fn validate_object_schema(
 
   use _ <- result.try(properties)
 
+  // Get properties for validation
+  let properties_json = json_helpers.get_field(schema, "properties")
+
   // Validate required fields reference existing properties
   use _ <- result.try(case json_helpers.get_array(schema, "required") {
-    Some(required_array) -> validate_required_fields(def_name, required_array)
+    Some(required_array) ->
+      validate_required_fields(def_name, required_array, properties_json)
     None -> Ok(Nil)
   })
 
   // Validate nullable fields reference existing properties
   use _ <- result.try(case json_helpers.get_array(schema, "nullable") {
-    Some(nullable_array) -> validate_nullable_fields(def_name, nullable_array)
+    Some(nullable_array) ->
+      validate_nullable_fields(def_name, nullable_array, properties_json)
     None -> Ok(Nil)
   })
 
   // Validate each property schema recursively
-  case json_helpers.get_field(schema, "properties") {
+  case properties_json {
     Some(properties) -> {
       case json_helpers.is_object(properties) {
         True -> {
@@ -235,19 +240,52 @@ pub fn validate_object_data(
 fn validate_required_fields(
   def_name: String,
   required: List(Dynamic),
+  properties: option.Option(Json),
 ) -> Result(Nil, errors.ValidationError) {
   // Convert dynamics to strings
   let field_names =
     list.filter_map(required, fn(item) { decode.run(item, decode.string) })
 
-  // Each required field should be validated against properties
-  // Simplified: just check they're strings
-  case list.length(field_names) == list.length(required) {
+  // Check all items are strings
+  use _ <- result.try(case list.length(field_names) == list.length(required) {
     True -> Ok(Nil)
     False ->
       Error(errors.invalid_schema(
         def_name <> ": required fields must be strings",
       ))
+  })
+
+  // Validate each required field exists in properties
+  case properties {
+    Some(props) -> {
+      case json_helpers.json_to_dict(props) {
+        Ok(props_dict) -> {
+          list.try_fold(field_names, Nil, fn(_, field_name) {
+            case json_helpers.dict_has_key(props_dict, field_name) {
+              True -> Ok(Nil)
+              False ->
+                Error(errors.invalid_schema(
+                  def_name
+                  <> ": required field '"
+                  <> field_name
+                  <> "' not found in properties",
+                ))
+            }
+          })
+        }
+        Error(_) -> Ok(Nil)
+      }
+    }
+    None -> {
+      // No properties defined, but required fields specified - this is an error
+      case list.is_empty(field_names) {
+        True -> Ok(Nil)
+        False ->
+          Error(errors.invalid_schema(
+            def_name <> ": required fields specified but no properties defined",
+          ))
+      }
+    }
   }
 }
 
@@ -255,19 +293,52 @@ fn validate_required_fields(
 fn validate_nullable_fields(
   def_name: String,
   nullable: List(Dynamic),
+  properties: option.Option(Json),
 ) -> Result(Nil, errors.ValidationError) {
   // Convert dynamics to strings
   let field_names =
     list.filter_map(nullable, fn(item) { decode.run(item, decode.string) })
 
-  // Each nullable field should be validated against properties
-  // Simplified: just check they're strings
-  case list.length(field_names) == list.length(nullable) {
+  // Check all items are strings
+  use _ <- result.try(case list.length(field_names) == list.length(nullable) {
     True -> Ok(Nil)
     False ->
       Error(errors.invalid_schema(
         def_name <> ": nullable fields must be strings",
       ))
+  })
+
+  // Validate each nullable field exists in properties
+  case properties {
+    Some(props) -> {
+      case json_helpers.json_to_dict(props) {
+        Ok(props_dict) -> {
+          list.try_fold(field_names, Nil, fn(_, field_name) {
+            case json_helpers.dict_has_key(props_dict, field_name) {
+              True -> Ok(Nil)
+              False ->
+                Error(errors.invalid_schema(
+                  def_name
+                  <> ": nullable field '"
+                  <> field_name
+                  <> "' not found in properties",
+                ))
+            }
+          })
+        }
+        Error(_) -> Ok(Nil)
+      }
+    }
+    None -> {
+      // No properties defined, but nullable fields specified - this is an error
+      case list.is_empty(field_names) {
+        True -> Ok(Nil)
+        False ->
+          Error(errors.invalid_schema(
+            def_name <> ": nullable fields specified but no properties defined",
+          ))
+      }
+    }
   }
 }
 
@@ -283,11 +354,9 @@ fn validate_required_fields_in_data(
 
   // Check each required field exists in data
   list.try_fold(field_names, Nil, fn(_, field_name) {
-    case json_helpers.get_string(data, field_name) {
+    case json_helpers.get_field(data, field_name) {
       Some(_) -> Ok(Nil)
       None ->
-        // Field might not be a string, check if it exists at all
-        // Simplified: just report missing
         Error(errors.data_validation(
           def_name <> ": required field '" <> field_name <> "' is missing",
         ))
