@@ -221,10 +221,7 @@ pub fn get_array_from_value(json_value: Json) -> Option(List(Dynamic)) {
 
 /// Check if dynamic value is null
 pub fn is_null_dynamic(dyn: Dynamic) -> Bool {
-  case decode.run(dyn, decode.string) {
-    Ok("null") -> True
-    _ -> False
-  }
+  dynamic.classify(dyn) == "Nil"
 }
 
 /// Convert JSON object to a dictionary
@@ -243,65 +240,66 @@ pub fn json_to_dict(
 }
 
 /// Convert a dynamic value back to Json
-/// This works by trying different decoders
 pub fn dynamic_to_json(dyn: Dynamic) -> Result(Json, ValidationError) {
-  // Try null
-  case decode.run(dyn, decode.string) {
-    Ok(s) -> {
-      case s {
-        "null" -> Ok(json.null())
-        _ -> Ok(json.string(s))
+  case dynamic.classify(dyn) {
+    "Nil" -> Ok(json.null())
+    "String" -> {
+      case decode.run(dyn, decode.string) {
+        Ok(s) -> Ok(json.string(s))
+        Error(_) -> Error(data_validation("Failed to decode string"))
       }
     }
-    Error(_) -> {
-      // Try number
+    "Int" -> {
       case decode.run(dyn, decode.int) {
         Ok(i) -> Ok(json.int(i))
-        Error(_) -> {
-          // Try boolean
-          case decode.run(dyn, decode.bool) {
-            Ok(b) -> Ok(json.bool(b))
-            Error(_) -> {
-              // Try array
-              case decode.run(dyn, decode.list(decode.dynamic)) {
-                Ok(arr) -> {
-                  // Recursively convert array items
-                  case list.try_map(arr, dynamic_to_json) {
-                    Ok(json_arr) -> Ok(json.array(json_arr, fn(x) { x }))
-                    Error(e) -> Error(e)
-                  }
-                }
-                Error(_) -> {
-                  // Try object
-                  case
-                    decode.run(dyn, decode.dict(decode.string, decode.dynamic))
-                  {
-                    Ok(dict_val) -> {
-                      // Convert dict to object
-                      let pairs = dict.to_list(dict_val)
-                      case
-                        list.try_map(pairs, fn(pair) {
-                          let #(key, value_dyn) = pair
-                          case dynamic_to_json(value_dyn) {
-                            Ok(value_json) -> Ok(#(key, value_json))
-                            Error(e) -> Error(e)
-                          }
-                        })
-                      {
-                        Ok(json_pairs) -> Ok(json.object(json_pairs))
-                        Error(e) -> Error(e)
-                      }
-                    }
-                    Error(_) ->
-                      Error(data_validation("Failed to convert dynamic to Json"))
-                  }
-                }
-              }
-            }
-          }
-        }
+        Error(_) -> Error(data_validation("Failed to decode int"))
       }
     }
+    "Float" -> {
+      case decode.run(dyn, decode.float) {
+        Ok(f) -> Ok(json.float(f))
+        Error(_) -> Error(data_validation("Failed to decode float"))
+      }
+    }
+    "Bool" -> {
+      case decode.run(dyn, decode.bool) {
+        Ok(b) -> Ok(json.bool(b))
+        Error(_) -> Error(data_validation("Failed to decode bool"))
+      }
+    }
+    "List" -> {
+      case decode.run(dyn, decode.list(decode.dynamic)) {
+        Ok(arr) -> {
+          case list.try_map(arr, dynamic_to_json) {
+            Ok(json_arr) -> Ok(json.array(json_arr, fn(x) { x }))
+            Error(e) -> Error(e)
+          }
+        }
+        Error(_) -> Error(data_validation("Failed to decode list"))
+      }
+    }
+    "Dict" -> {
+      case decode.run(dyn, decode.dict(decode.string, decode.dynamic)) {
+        Ok(dict_val) -> {
+          let pairs = dict.to_list(dict_val)
+          case
+            list.try_map(pairs, fn(pair) {
+              let #(key, value_dyn) = pair
+              case dynamic_to_json(value_dyn) {
+                Ok(value_json) -> Ok(#(key, value_json))
+                Error(e) -> Error(e)
+              }
+            })
+          {
+            Ok(json_pairs) -> Ok(json.object(json_pairs))
+            Error(e) -> Error(e)
+          }
+        }
+        Error(_) -> Error(data_validation("Failed to decode dict"))
+      }
+    }
+    other ->
+      Error(data_validation("Unsupported type for JSON conversion: " <> other))
   }
 }
 
