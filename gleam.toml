@@ -1,5 +1,5 @@
 name = "honk"
-version = "1.0.1"
+version = "1.1.0"
 description = "ATProtocol lexicon validator for Gleam"
 internal_modules = ["honk/internal", "honk/internal/*"]
 licences = ["Apache-2.0"]

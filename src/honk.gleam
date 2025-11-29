@@ -149,20 +149,31 @@ fn validate_definition(
   }
 }
 
-/// Validates a single data record against a collection schema
-pub fn validate_record(
+/// Validation context type (re-exported for external use)
+pub type ValidationContext =
+  context.ValidationContext
+
+/// Build a reusable validation context from lexicons
+/// Call this once, then use validate_record_with_context for each record
+pub fn build_validation_context(
   lexicons: List(Json),
-  collection: String,
-  record: Json,
-) -> Result(Nil, ValidationError) {
-  // Build validation context
+) -> Result(ValidationContext, ValidationError) {
   let builder_result =
     context.builder()
     |> context.with_lexicons(lexicons)
 
   use builder <- result.try(builder_result)
-  use ctx <- result.try(context.build(builder))
+  context.build(builder)
+}
 
+/// Validates a single data record against a collection schema using pre-built context
+/// This is much faster when validating many records - build context once with
+/// build_validation_context, then call this for each record
+pub fn validate_record_with_context(
+  ctx: ValidationContext,
+  collection: String,
+  record: Json,
+) -> Result(Nil, ValidationError) {
   // Get the lexicon for this collection
   case context.get_lexicon(ctx, collection) {
     Some(lexicon) -> {
@@ -183,6 +194,17 @@ pub fn validate_record(
     }
     None -> Error(errors.lexicon_not_found(collection))
   }
+}
+
+/// Validates a single data record against a collection schema
+pub fn validate_record(
+  lexicons: List(Json),
+  collection: String,
+  record: Json,
+) -> Result(Nil, ValidationError) {
+  // Build validation context
+  use ctx <- result.try(build_validation_context(lexicons))
+  validate_record_with_context(ctx, collection, record)
 }
 
 /// Validates NSID format
