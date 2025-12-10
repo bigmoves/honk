@@ -217,6 +217,15 @@ pub fn is_valid_cid(value: String) -> Bool {
   }
 }
 
+/// Validates CID format with raw multicodec (0x55) for blobs
+/// Base32 CIDv1 with raw multicodec starts with "bafkrei"
+pub fn is_valid_raw_cid(value: String) -> Bool {
+  case is_valid_cid(value) {
+    False -> False
+    True -> string.starts_with(value, "bafkrei")
+  }
+}
+
 /// Validates BCP47 language tag
 pub fn is_valid_language_tag(value: String) -> Bool {
   // Lenient BCP47 validation (max 128 chars)

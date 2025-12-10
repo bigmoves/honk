@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+
+- Validate full ATProto blob structure with stricter field checking
+
 ## 1.1.0
 
 ### Added

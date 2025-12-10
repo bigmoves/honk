@@ -13,8 +13,11 @@ import honk/errors
 import honk/internal/constraints
 import honk/internal/json_helpers
 import honk/validation/context.{type ValidationContext}
+import honk/validation/formats
 
 const allowed_fields = ["type", "accept", "maxSize", "description"]
+
+const allowed_data_fields = ["$type", "ref", "mimeType", "size"]
 
 /// Validates blob schema definition
 pub fn validate_schema(
@@ -66,10 +69,37 @@ pub fn validate_data(
       Error(errors.data_validation(def_name <> ": expected blob object"))
     }
     True -> {
-      // Validate required mimeType field
+      // Validate no extra fields (strict mode per atproto implementation)
+      let keys = json_helpers.get_keys(data)
+      use _ <- result.try(validate_no_extra_fields(def_name, keys))
+
+      // Validate $type field must be "blob"
+      use _ <- result.try(case json_helpers.get_string(data, "$type") {
+        Some("blob") -> Ok(Nil)
+        Some(other) ->
+          Error(errors.data_validation(
+            def_name <> ": blob $type must be 'blob', got '" <> other <> "'",
+          ))
+        None ->
+          Error(errors.data_validation(
+            def_name <> ": blob missing required '$type' field",
+          ))
+      })
+
+      // Validate ref field with $link containing raw CID
+      use _ <- result.try(validate_ref_field(data, def_name))
+
+      // Validate required mimeType field (non-empty)
       use mime_type <- result.try(
         case json_helpers.get_string(data, "mimeType") {
-          Some(mt) -> Ok(mt)
+          Some(mt) ->
+            case string.is_empty(mt) {
+              True ->
+                Error(errors.data_validation(
+                  def_name <> ": blob mimeType cannot be empty",
+                ))
+              False -> Ok(mt)
+            }
           None ->
             Error(errors.data_validation(
               def_name <> ": blob missing required 'mimeType' field",
@@ -77,9 +107,16 @@ pub fn validate_data(
         },
       )
 
-      // Validate required size field
+      // Validate required size field (non-negative integer)
       use size <- result.try(case json_helpers.get_int(data, "size") {
-        Some(s) -> Ok(s)
+        Some(s) ->
+          case s >= 0 {
+            True -> Ok(s)
+            False ->
+              Error(errors.data_validation(
+                def_name <> ": blob size must be non-negative",
+              ))
+          }
         None ->
           Error(errors.data_validation(
             def_name <> ": blob missing or invalid 'size' field",
@@ -111,6 +148,58 @@ pub fn validate_data(
         None -> Ok(Nil)
       }
     }
+  }
+}
+
+/// Validates that blob data has no extra fields
+fn validate_no_extra_fields(
+  def_name: String,
+  keys: List(String),
+) -> Result(Nil, errors.ValidationError) {
+  let extra_keys =
+    list.filter(keys, fn(key) { !list.contains(allowed_data_fields, key) })
+  case extra_keys {
+    [] -> Ok(Nil)
+    [first, ..] ->
+      Error(errors.data_validation(
+        def_name <> ": blob has unexpected field '" <> first <> "'",
+      ))
+  }
+}
+
+/// Validates the ref field containing $link with raw CID
+fn validate_ref_field(
+  data: Json,
+  def_name: String,
+) -> Result(Nil, errors.ValidationError) {
+  case json_helpers.get_field(data, "ref") {
+    Some(ref_json) ->
+      case json_helpers.is_object(ref_json) {
+        False ->
+          Error(errors.data_validation(
+            def_name <> ": blob ref must be an object",
+          ))
+        True ->
+          case json_helpers.get_string(ref_json, "$link") {
+            Some(cid) ->
+              case formats.is_valid_raw_cid(cid) {
+                True -> Ok(Nil)
+                False ->
+                  Error(errors.data_validation(
+                    def_name
+                    <> ": blob ref.$link must be a valid CID with raw multicodec (bafkrei prefix)",
+                  ))
+              }
+            None ->
+              Error(errors.data_validation(
+                def_name <> ": blob ref must have $link field",
+              ))
+          }
+      }
+    None ->
+      Error(errors.data_validation(
+        def_name <> ": blob missing required 'ref' field",
+      ))
   }
 }
 

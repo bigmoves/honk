@@ -256,6 +256,36 @@ pub fn cid_empty_test() {
   formats.is_valid_cid("") |> should.be_false
 }
 
+// ========== RAW CID TESTS ==========
+
+// Test valid raw CID (bafkrei prefix = CIDv1 + raw multicodec 0x55)
+pub fn valid_raw_cid_test() {
+  formats.is_valid_raw_cid(
+    "bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy",
+  )
+  |> should.be_true
+}
+
+// Test dag-cbor CID rejected (bafyrei prefix = CIDv1 + dag-cbor multicodec 0x71)
+pub fn invalid_raw_cid_dag_cbor_test() {
+  formats.is_valid_raw_cid(
+    "bafyreidfayvfuwqa7qlnopdjiqrxzs6blmoeu4rujcjtnci5beludirz2a",
+  )
+  |> should.be_false
+}
+
+// Test CIDv0 rejected for raw CID
+pub fn invalid_raw_cid_v0_test() {
+  formats.is_valid_raw_cid("QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")
+  |> should.be_false
+}
+
+// Test invalid CID rejected
+pub fn invalid_raw_cid_garbage_test() {
+  formats.is_valid_raw_cid("not-a-cid")
+  |> should.be_false
+}
+
 // ========== LANGUAGE TESTS ==========
 
 pub fn language_valid_test() {
