@@ -1,10 +1,13 @@
 // Main public API for the ATProtocol lexicon validator
 
+@target(erlang)
 import argv
 import gleam/dict.{type Dict}
 import gleam/dynamic
 import gleam/dynamic/decode
+@target(erlang)
 import gleam/int
+@target(erlang)
 import gleam/io
 import gleam/json.{type Json}
 import gleam/list
@@ -16,6 +19,7 @@ import honk/internal/json_helpers
 import honk/types
 import honk/validation/context
 import honk/validation/formats
+@target(erlang)
 import simplifile
 
 // Import validators
@@ -281,6 +285,7 @@ pub fn parse_json_strings(
   })
 }
 
+@target(erlang)
 /// CLI entry point for the honk lexicon validator
 ///
 /// Usage:
@@ -297,6 +302,7 @@ pub fn main() -> Nil {
   }
 }
 
+@target(erlang)
 /// Validate a path (auto-detects file or directory)
 fn validate_path(path: String) -> Nil {
   case simplifile.is_file(path) {
@@ -322,6 +328,7 @@ fn validate_path(path: String) -> Nil {
   }
 }
 
+@target(erlang)
 /// Validate a single lexicon file
 fn validate_file(file_path: String) -> Nil {
   case read_and_validate_file(file_path) {
@@ -337,6 +344,7 @@ fn validate_file(file_path: String) -> Nil {
   }
 }
 
+@target(erlang)
 /// Validate all .json files in a directory
 fn validate_directory(dir_path: String) -> Nil {
   case simplifile.get_files(dir_path) {
@@ -474,6 +482,7 @@ fn validate_directory(dir_path: String) -> Nil {
   }
 }
 
+@target(erlang)
 /// Read and parse a JSON file (without validation)
 fn read_json_file(file_path: String) -> Result(Json, String) {
   use content <- result.try(
@@ -490,6 +499,7 @@ fn read_json_file(file_path: String) -> Result(Json, String) {
   |> result.map_error(fn(_) { "Failed to convert JSON" })
 }
 
+@target(erlang)
 /// Read a file and validate it as a lexicon
 fn read_and_validate_file(file_path: String) -> Result(Nil, String) {
   use content <- result.try(
@@ -515,6 +525,7 @@ fn read_and_validate_file(file_path: String) -> Result(Nil, String) {
   Ok(Nil)
 }
 
+@target(erlang)
 /// Format validation errors from the error map
 fn format_validation_errors(error_map: Dict(String, List(String))) -> String {
   error_map
@@ -526,6 +537,7 @@ fn format_validation_errors(error_map: Dict(String, List(String))) -> String {
   |> string.join("\n  ")
 }
 
+@target(erlang)
 /// Show help text
 fn show_help() -> Nil {
   io.println(
