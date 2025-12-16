@@ -267,7 +267,7 @@ pub fn dynamic_to_json(dyn: Dynamic) -> Result(Json, ValidationError) {
         Error(_) -> Error(data_validation("Failed to decode bool"))
       }
     }
-    "List" -> {
+    "List" | "Array" -> {
       case decode.run(dyn, decode.list(decode.dynamic)) {
         Ok(arr) -> {
           case list.try_map(arr, dynamic_to_json) {
@@ -278,7 +278,7 @@ pub fn dynamic_to_json(dyn: Dynamic) -> Result(Json, ValidationError) {
         Error(_) -> Error(data_validation("Failed to decode list"))
       }
     }
-    "Dict" -> {
+    "Dict" | "Object" -> {
       case decode.run(dyn, decode.dict(decode.string, decode.dynamic)) {
         Ok(dict_val) -> {
           let pairs = dict.to_list(dict_val)
