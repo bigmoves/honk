@@ -6,7 +6,7 @@ gleam build --target javascript
 rm -rf dist
 mkdir -p dist
 
-npx esbuild build/dev/javascript/honk/honk.mjs \
+npx esbuild src/honk_bundle.mjs \
   --bundle \
   --minify \
   --format=iife \
